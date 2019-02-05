@@ -2,23 +2,24 @@ from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.actor.Actor import Actor
 from direct.interval.IntervalGlobal import Sequence
-from panda3d.core import Point3
- 
+from panda3d.core import Point3, ConfigVariableDouble
+
+import imagery
+
 from math import pi, sin, cos
  
+ConfigVariableDouble('default-far').setValue(20000000)
+
 class MyApp(ShowBase):
  
     def __init__(self):
+
+
         ShowBase.__init__(self)
- 
-        # Load the environment model.
-        self.scene = self.loader.loadModel("models/environment")
-        # Reparent the model to render.
-        self.scene.reparentTo(self.render)
-        # Apply scale and position transforms on the model.
-        self.scene.setScale(0.25, 0.25, 0.25)
-        self.scene.setPos(-8, 42, 0)
- 
+        
+
+        imagery.loadScenery(self.render.attachNewNode('sceneryNode'))
+
         # Add the spinCameraTask procedure to the task manager.
         self.taskMgr.add(self.spinCameraTask, "SpinCameraTask")
  
@@ -55,10 +56,12 @@ class MyApp(ShowBase):
 
     # Define a procedure to move the camera.
     def spinCameraTask(self, task):
-        angleDegrees = task.time * 6.0
+        angleDegrees = task.time * 5.0
         angleRadians = angleDegrees * (pi / 180.0)
-        self.camera.setPos(20 * sin(angleRadians), -20.0 * cos(angleRadians), 3)
-        self.camera.setHpr(angleDegrees, 0, 0)
+        dist = 1 * 1.5 ** (-10 * cos(task.time / 10) + 20)
+        self.camera.setPos(dist * sin(angleRadians), -dist * cos(angleRadians), dist*0.5)
+        self.camera.setHpr(angleDegrees, -25, 0)
+        
         return Task.cont
 
 

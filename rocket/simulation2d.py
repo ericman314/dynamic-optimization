@@ -55,6 +55,7 @@ while 1:
     c, s = np.cos(theta), np.sin(theta)
     rotMat = np.array(((c,-s), (s, c)))
 
+    # Very simple controller
     thrustAngleDeg = -1 * theta - dtheta + x * 0.001 + dx * 0.01
     thrustMag = 845000 - y * 10000 - dy * 30000 # N
     if thrustMag < 0: thrustMag = 0

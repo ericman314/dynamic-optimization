@@ -2,8 +2,10 @@ from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
 from direct.actor.Actor import Actor
 from direct.interval.IntervalGlobal import Sequence
+from direct.stdpy import threading
 from panda3d.core import Point3, Vec3, ConfigVariableDouble, ConfigVariableInt, DirectionalLight, AmbientLight, VBase4, LVector3f, AntialiasAttrib
 from panda3d.bullet import BulletWorld, BulletCylinderShape, BulletPlaneShape, BulletRigidBodyNode, Z_up
+import time
 
 import imagery
 import falcon
@@ -19,6 +21,7 @@ class MyApp(ShowBase):
   def __init__(self):
 
     ShowBase.__init__(self)
+
 
     # Set up the Bullet physics engine
     self.world = BulletWorld()
@@ -81,16 +84,34 @@ class MyApp(ShowBase):
 
     self.render.setAntialias(AntialiasAttrib.MAuto)
 
-    # Add the spinCameraTask procedure to the task manager.
+    # Add the tick procedure to the main task manager.
     self.taskMgr.add(self.tick, "Tick")
 
+    # Set up a second thread for the controller
+    self.taskMgr.setupTaskChain('controller', numThreads = 1)
+    self.taskMgr.add(self.runController, "Controller", taskChain='controller')
 
-  # Perform the physics here. Also rotate the camera around.
+    # Create a shared data dictionary to pass data to and from the controller
+    # Remember to use locks when accessing shared data
+    self.sharedData = { }
+
+    # Lock for accessing shared data
+    self.lock = threading.Lock()
+
+  # Perform the physics here
   def tick(self, task):
-    
+
+    with self.lock:
+      # TODO: Read controller output from shared data
+      pass
+
     # Run Bullet simulation (where is globalClock defined? Well it works somehow...)
     dt = globalClock.getDt()
     self.world.doPhysics(dt)
+    
+    with self.lock:
+      # TODO: Write current telemetry to shared data
+      pass
 
     # Rotate camera
     angleDegrees = task.time * 5.0
@@ -102,6 +123,24 @@ class MyApp(ShowBase):
     
     return Task.cont    # Execute the task again
 
+  # Runs on a separate thread
+  def runController(self, task):
+    
+    print 'Controller began on frame', task.frame
+    
+    with self.lock:
+      # TODO: Read current telemetry from shared data
+      pass
+
+    # TODO: The CPU-intensive MHE/MPC will solve here
+    time.sleep(1)
+
+    with self.lock:
+      # TODO: Write controller output to the shared data
+      pass
+
+    # Immediately begin this task again
+    return Task.cont
 
 
 

@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 m = GEKKO()
 
 # time
-n = 1000
-tf = m.FV(value=0)
-m.time = np.linspace(0, 1000, n)
+n = 100
+# tf = m.FV(value=0)
+m.time = np.linspace(0, 10, n)
 last = np.zeros(n)
 last[-1] = 1
 
@@ -18,16 +18,16 @@ final = np.zeros(np.size(m.time))
 drymass = m.Param(25000)  # Rocket mass w/out fuel
 
 # Manipulated variable
-Thrusty = m.Var(value=0, lb=0)
-Thrustx = m.Var(value=0)
+Thrusty = m.Param(value=0)
+Thrustx = m.Param(value=0)
 
 # Variables
-theta = m.Var(value=0)
-g = m.Var(value=9.8)
+# theta = m.Var(value=0)
+g = m.Param(value=9.8)
 
 # Controlled Variable
 # Position
-y = m.Var(value=1000, lb=0)  # Lower bound is the ground
+y = m.Var(value=1000)  # Lower bound is the ground
 x = m.Var(value=10)
 
 # Velocity
@@ -36,10 +36,9 @@ vx = m.Var(value=0)
 
 # Acceleration
 ax = m.Var(value=0)
-ay = m.Var(value=0)
+ay = m.Var(value=-9.8)
 
-fuelmass = m.Var(value=10000)
-totalmass = m.Var(value=drymass + fuelmass)
+totalmass = m.Param(value=drymass)
 
 # Equations -----------------------------------------------------------------------------------------------------------
 
@@ -47,24 +46,24 @@ totalmass = m.Var(value=drymass + fuelmass)
 #m.Equation(t)
 
 # Position
-m.Equation(x.dt() == vx*tf)
-m.Equation(y.dt() == vy*tf)
+m.Equation(x.dt() == vx)
+m.Equation(y.dt() == vy)
 
 # Velocity
-m.Equation(vx.dt() == ax*tf)
-m.Equation(vy.dt() == ay*tf)
+m.Equation(vx.dt() == ax)
+m.Equation(vy.dt() == ay)
 
 # Acceleration
-m.Equation(ay == (Thrusty-g)/totalmass)*tf
-m.Equation(ax == Thrustx/totalmass)*tf
+m.Equation(ay == (Thrusty/totalmass - g))
+m.Equation(ax == Thrustx/totalmass)
 
 # Objective
-m.Obj(tf*(y**2 + vy**2 + vx**2 + x**2)**2)
-#m.Obj(0.001 * (ax**2) + 0.001*(ay**2))
+# m.Obj(tf*(y**2 + vy**2 + vx**2 + x**2)**2)
+# m.Obj(0.001 * (ax**2) + 0.001*(ay**2))
 
 #%% Tuning
 #global
-m.options.IMODE = 6  # Control
+m.options.IMODE = 4  # Control
 
 #%% Solve
 m.solve()
@@ -72,11 +71,11 @@ m.solve()
 #%% Plot solution
 plt.figure()
 plt.subplot(4, 1, 1)
-plt.plot(m.time, ax.value, 'r-', linewidth=1)
-plt.plot(m.time, ay.value, 'b-', linewidth=1)
+plt.plot(m.time, ax.value, 'r-', linewidth=1, label='ax')
+plt.plot(m.time, ay.value, 'b-', linewidth=1, label='ay')
 plt.ylabel('Thrust')
+plt.legend(loc='best')
 
-plt.legend(['u'], loc='best')
 plt.subplot(4, 1, 2)
 plt.plot(m.time, vx.value, 'b--', linewidth=1, label='vx')
 plt.plot(m.time, vy.value, 'r--', linewidth=1, label='vy')

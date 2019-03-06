@@ -12,14 +12,17 @@ n = 100
 m.time = np.linspace(0, 10, n)
 last = np.zeros(n)
 last[-1] = 1
+last = m.Param(value=last)
 
 # Parameters
 final = np.zeros(np.size(m.time))
 drymass = m.Param(25000)  # Rocket mass w/out fuel
 
 # Manipulated variable
-Thrusty = m.Param(value=0)
-Thrustx = m.Param(value=0)
+Thrusty = m.CV(value=0)
+Thrustx = m.CV(value=0)
+Thrusty.STATUS = 1
+Thrustx.STATUS = 1
 
 # Variables
 # theta = m.Var(value=0)
@@ -27,7 +30,7 @@ g = m.Param(value=9.8)
 
 # Controlled Variable
 # Position
-y = m.Var(value=1000)  # Lower bound is the ground
+y = m.Var(value=1000, lb=0)  # Lower bound is the ground
 x = m.Var(value=10)
 
 # Velocity
@@ -58,12 +61,13 @@ m.Equation(ay == (Thrusty/totalmass - g))
 m.Equation(ax == Thrustx/totalmass)
 
 # Objective
-# m.Obj(tf*(y**2 + vy**2 + vx**2 + x**2)**2)
+m.Obj(last*(y**2 + vy**2))
+m.Obj(last*(vx**2 + x**2))
 # m.Obj(0.001 * (ax**2) + 0.001*(ay**2))
 
 #%% Tuning
 #global
-m.options.IMODE = 4  # Control
+m.options.IMODE = 5
 
 #%% Solve
 m.solve()

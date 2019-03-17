@@ -3,9 +3,11 @@ from direct.task import Task
 from direct.actor.Actor import Actor
 from direct.interval.IntervalGlobal import Sequence
 from direct.stdpy import threading
-from panda3d.core import Point3, Vec3, ConfigVariableDouble, ConfigVariableInt, DirectionalLight, AmbientLight, VBase4, LVector3f, AntialiasAttrib
-from panda3d.bullet import BulletWorld, BulletCylinderShape, BulletPlaneShape, BulletRigidBodyNode, Z_up
+from panda3d.core import Point3, Vec3, ConfigVariableDouble, ConfigVariableInt, DirectionalLight, AmbientLight, VBase4, LVector3f, AntialiasAttrib, TransformState
+from panda3d.bullet import BulletWorld, BulletCylinderShape, BulletPlaneShape, BulletRigidBodyNode, X_up, Y_up, Z_up, BulletGenericConstraint, BulletDebugNode
 import time
+import sys
+import math
 
 import imagery
 import falcon
@@ -22,53 +24,97 @@ class MyApp(ShowBase):
 
     ShowBase.__init__(self)
 
-
     # Set up the Bullet physics engine
     self.world = BulletWorld()
     self.world.setGravity(Vec3(0, 0, -9.81))
 
+    debugNode = BulletDebugNode('Debug')
+    debugNode.showWireframe(True)
+    debugNode.showConstraints(False)
+    debugNode.showBoundingBoxes(False)
+    debugNode.showNormals(False)
+    debugNP = self.render.attachNewNode(debugNode)
+    debugNP.show()
+    
+    self.world.setDebugNode(debugNP.node())
+
     # Make a ground for the rocket to land on
-    groundNode = BulletRigidBodyNode('Ground')
-    groundNode.addShape(BulletPlaneShape(Vec3(0, 0, 1), 1))
-    
-    self.render.attachNewNode(groundNode).setPos(0, 0, 0)
+    groundNP = self.render.attachNewNode(BulletRigidBodyNode('Ground'))
+    groundNP.setPos(0, 0, 0)
+    groundNP.node().addShape(BulletPlaneShape(Vec3(0, 0, 1), 1))
+    groundNP.node().set_restitution(0.5)
 
+    self.world.attachRigidBody(groundNP.node())
+
+    
+
+    # Falcon 9 parameters
+    f9ThrustSL = 7607000 / 9     # N, per engine
+    f9ThrustVac = 8227000 / 9    # N, per engine
+    f9MinimumThrottle = 0.57     # Minimum throttle capability
+    f9PropMass = 417000          # mass of propellent when 100% full
+    f9BodyMass = 27200           # mass of empty falcon 9 without propellent
+    f9Radius = 1.8542     # Radius of F9 in meters
+    f9Height = 47         # Height of F9 in meters
+    f9COMoffset = -8            # Center of mass relative to center of body, in meters
+    
+    # Initial Conditions
+    initPropLoad = 0.15 * f9PropMass    # Amount of full-tank propellent remaining
+    initX = 0
+    initY = 0
+    initZ = 60
+        
     # Make the rocket
-    falconRadius = 1.8542
-    falconHeight = 47
-    rocketNode = BulletRigidBodyNode('Rocket')
-    rocketNode.setMass(1.0)   # TODO: Update this, determine how Bullet reacts if the mass changes
-    rocketNode.addShape(BulletCylinderShape(falconRadius, falconHeight, Z_up))   # radius, height, axis
-
-    rocketNP = self.render.attachNewNode(rocketNode)
+    self.f9BodyNP = self.render.attachNewNode(BulletRigidBodyNode('RocketBody'))
     
-    # Set initial position/velocity
-    rocketNP.setPos(0, 0, 60)
-    rocketNode.set_linear_velocity(LVector3f(0, -10, 0))
-    rocketNode.set_angular_velocity(LVector3f(2, 0, 0))
+    self.f9BodyNP.node().addShape(BulletCylinderShape(f9Radius, f9Height, Z_up), TransformState.makePos(Vec3(0, 0, -f9COMoffset)))   # radius, height, axis
+    # Rocket landing legs
+    
+    for i in range(4):
+      leg = BulletCylinderShape(0.1, 10, X_up)
+      self.f9BodyNP.node().addShape(leg, TransformState.makePosHpr(Vec3(6*math.cos(i*math.pi/2),6*math.sin(i*math.pi/2),-f9Height*0.5-f9COMoffset),Vec3(i*90,0,30)))
+    
+
+    
+    self.f9BodyNP.node().setMass(f9BodyMass)
+    self.f9BodyNP.setPos(initX, initY, initZ)
+
+
+    self.world.attachRigidBody(self.f9BodyNP.node())
+
+
+    # We will create four cylinders: one for the rocket body, one for the engines, and two for the propellent tanks.
+    # Each cylinder will have its own specified mass. The three smaller cylinders for the engines and tanks will be joined to the rocket body with rigid constraints.
+    # The two tank cylinders will have variable mass as the propellent is used.
+
+    # RP-1 density is 0.820
+    # LOX density is 1.14, or maybe more like 1.25 if it is densified
+    # First stage uses 297200 kg of LOX, 119700 kg of RP-1
 
     # Turn off damping, sleeping, and other bells and whistles
-    rocketNode.set_linear_sleep_threshold(0)
-    rocketNode.set_angular_sleep_threshold(0)
-    rocketNode.set_linear_damping(0)
-    rocketNode.set_angular_damping(0)
-    # rocketNode.set_friction(0)
+    self.f9BodyNP.node().set_linear_sleep_threshold(0)
+    self.f9BodyNP.node().set_angular_sleep_threshold(0)
+    self.f9BodyNP.node().set_linear_damping(0)
+    self.f9BodyNP.node().set_angular_damping(0)
 
-    # Make the rocket bounce off the ground for fun
-    rocketNode.set_restitution(0.8)
-    groundNode.set_restitution(0.8)
+      # Make the rocket bounce off the ground for fun
+    self.f9BodyNP.node().set_restitution(0.5)
 
 
-    self.world.attachRigidBody(groundNode)
-    self.world.attachRigidBody(rocketNode)
+    # Set initial position/velocity
+
+    self.f9BodyNP.node().set_linear_velocity(LVector3f(0, 0, 9))
+    self.f9BodyNP.node().set_angular_velocity(LVector3f(1, 1, 0))
+
+
 
   
 
     # Load models
     imagery.loadScenery(self.render.attachNewNode('sceneryNode'))
 
-    rocketModelNodePath = rocketNP.attachNewNode('falconNode')
-    falcon.loadFalcon(rocketModelNodePath, falconRadius, falconHeight)
+    rocketModelNodePath = self.f9BodyNP.attachNewNode('falconNode')
+    falcon.loadFalcon(rocketModelNodePath, f9Radius, f9Height, f9COMoffset)
 
     # Lighting
     dlight = DirectionalLight('dlight')
@@ -90,6 +136,11 @@ class MyApp(ShowBase):
     # Set up a second thread for the controller
     self.taskMgr.setupTaskChain('controller', numThreads = 1)
     self.taskMgr.add(self.runController, "Controller", taskChain='controller')
+
+    # TODO: Clean shutdown
+    self.accept('escape', sys.exit) 
+
+
 
     # Create a shared data dictionary to pass data to and from the controller
     # Remember to use locks when accessing shared data
@@ -113,13 +164,10 @@ class MyApp(ShowBase):
       # TODO: Write current telemetry to shared data
       pass
 
-    # Rotate camera
-    angleDegrees = task.time * 5.0
-    angleRadians = angleDegrees * (pi / 180.0)
-    # dist = 1 * 1.5 ** (-10 * cos(task.time / 10) + 20)
-    dist = 150
-    self.camera.setPos(dist * sin(angleRadians), -dist * cos(angleRadians), dist*0.4)
-    self.camera.setHpr(angleDegrees, -15, 0)
+    # Position camera to look at rocket
+    
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(0, 120, 20))
+    self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again
 

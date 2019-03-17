@@ -3,7 +3,7 @@ from direct.showbase.Loader import Loader
 from panda3d.core import Geom, GeomVertexData, GeomVertexFormat, GeomVertexWriter, GeomTriangles, GeomNode, NodePath, LODNode, Material
 import math
 
-def loadFalcon(nodePath, radius, height):
+def loadFalcon(nodePath, radius, height, com):
 
   uSteps = 32
   vSteps = 64
@@ -24,13 +24,13 @@ def loadFalcon(nodePath, radius, height):
     x1 = math.cos(2 * math.pi * (u+1) / uSteps)
     y1 = math.sin(2 * math.pi * (u+1) / uSteps)
 
-    falconDataVertexWriter.addData3f(x0*radius, y0*radius, -height*0.5)
-    falconDataVertexWriter.addData3f(x1*radius, y1*radius, -height*0.5)
-    falconDataVertexWriter.addData3f(0, 0, -height*0.5)
+    falconDataVertexWriter.addData3f(x0*radius, y0*radius, -height*0.5 - com)
+    falconDataVertexWriter.addData3f(x1*radius, y1*radius, -height*0.5 - com)
+    falconDataVertexWriter.addData3f(0, 0, -height*0.5 - com)
 
-    falconDataVertexWriter.addData3f(x0*radius, y0*radius, height*0.5)
-    falconDataVertexWriter.addData3f(x1*radius, y1*radius, height*0.5)
-    falconDataVertexWriter.addData3f(0, 0, height*0.5)
+    falconDataVertexWriter.addData3f(x0*radius, y0*radius, height*0.5 - com)
+    falconDataVertexWriter.addData3f(x1*radius, y1*radius, height*0.5 - com)
+    falconDataVertexWriter.addData3f(0, 0, height*0.5 - com)
 
     falconDataNormalWriter.addData3f(0, 0, -1)
     falconDataNormalWriter.addData3f(0, 0, -1)
@@ -48,10 +48,10 @@ def loadFalcon(nodePath, radius, height):
       z0 = 1.0 * v / vSteps * height - height*0.5
       z1 = 1.0 * (v+1) / vSteps * height - height*0.5
 
-      falconDataVertexWriter.addData3f(x0*radius, y0*radius, z0)
-      falconDataVertexWriter.addData3f(x0*radius, y0*radius, z1)
-      falconDataVertexWriter.addData3f(x1*radius, y1*radius, z1)
-      falconDataVertexWriter.addData3f(x1*radius, y1*radius, z0)
+      falconDataVertexWriter.addData3f(x0*radius, y0*radius, z0 - com)
+      falconDataVertexWriter.addData3f(x0*radius, y0*radius, z1 - com)
+      falconDataVertexWriter.addData3f(x1*radius, y1*radius, z1 - com)
+      falconDataVertexWriter.addData3f(x1*radius, y1*radius, z0 - com)
 
       falconDataNormalWriter.addData3f(x0, y0, 0)
       falconDataNormalWriter.addData3f(x0, y0, 0)

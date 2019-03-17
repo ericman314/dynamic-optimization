@@ -65,7 +65,7 @@ def loadScenery(nodePath):
     lod_np = NodePath(lod)
 
     path.reparentTo(lod_np)
-
+    
     lod_np.reparentTo(nodePath)
     
     

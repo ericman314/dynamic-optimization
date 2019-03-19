@@ -6,7 +6,7 @@ def Fg(h, M = 5.972e24, r_planet=6371393):
     return G*M/(d**2)
 
 
-def air_dens(h, g, Po = 101325, To = 293.15):
+def air_dens(h, g = 9.80665, Po = 101325, To = 288.15):
     # See https://en.wikipedia.org/wiki/Density_of_air (Variation with altitude)
     # See http://www.atmo.arizona.edu/students/courselinks/fall14/atmo336/lectures/sec1/structure.html for Temp
     L = 0.0065     # K/m (Temperature Lapse Rate)
@@ -22,8 +22,8 @@ def air_dens(h, g, Po = 101325, To = 293.15):
         n = (h-18*1000)/5500
         P = 7150*(0.5**n)   # Pressure drops in half every 5.5km, empirical correlation
         T = 218.15          # Above Troposphere, temp gets strange, may need to fix this
-    ρ = P*M/(R*T)  # Density Dry Air
-    return P, T, ρ
+    rho = P*M/(R*T)  # Density Dry Air
+    return P, T, rho
 
 
 

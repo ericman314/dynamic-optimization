@@ -1,100 +1,88 @@
-import numpy as np
 from gekko import GEKKO
+import numpy as np
 import matplotlib.pyplot as plt
 
 
-# Initialize GEKKO model
 m = GEKKO()
+n = 1000
+m.time = np.linspace(0, 25, n)
 
-# time
-n = 100
-# tf = m.FV(value=0)
-m.time = np.linspace(0, 10, n)
-last = np.zeros(n)
-last[-1] = 1
-last = m.Param(value=last)
+# Constants
+g = m.Const(value=9.8)
+drymass = m.Const(value=1000)
 
-# Parameters
-final = np.zeros(np.size(m.time))
-drymass = m.Param(25000)  # Rocket mass w/out fuel
+# ---- Control --------------------------------------------------
+# Thrust
+Impulse = np.zeros(len(m.time))
+Impulse[int(0.2*n):int(0.4*n)] = 1e4
+Impulse[int(0.7*n):int(0.9*n)] = 2.3e5
 
-# Manipulated variable
-Thrusty = m.CV(value=0)
-Thrustx = m.CV(value=0)
-Thrusty.STATUS = 1
-Thrustx.STATUS = 1
+Thrust = m.Param(value=Impulse)
+mass = m.Param(value=1000)
 
-# Variables
-# theta = m.Var(value=0)
-g = m.Param(value=9.8)
+# Vectorize Thrust
+Gimbalx = m.Param(value=1.57)  # Angle from linear thrust in x direction
+Gimbaly = m.Param(value=0.3)  # Angle from linear thrust in y direction
 
-# Controlled Variable
+Thrustx = m.Intermediate(Thrust*m.sin(Gimbalx))
+Thrusty = m.Intermediate(Thrust*m.sin(Gimbaly))
+Thrustz = m.Intermediate(Thrust*(m.cos(Gimbalx)+m.cos(Gimbaly))/2.0)
+# ---- Control --------------------------------------------------
+
+# ---- Drag -----------------------------------------------------
+ρ = m.Const(value=1.225)  # Density of Air
+# These are cross sections, they should be Var in the future
+Ax = m.Const(value=4)
+Ay = m.Const(value=4)
+Az = m.Const(value=0.2)
+Cd = m.Const(value=0.5)  # Similar for sphere and cone shape
+
+# ---- Drag -----------------------------------------------------
+
+# ---- Main Newtonian Movement ----------------------------------
 # Position
-y = m.Var(value=1000, lb=0)  # Lower bound is the ground
-x = m.Var(value=10)
+x = m.Var(value=5)
+y = m.Var(value=10)
+z = m.Var(value=3000)
 
 # Velocity
-vy = m.Var(value=-100)       # Initially falling at 100 m/s
-vx = m.Var(value=0)
+vx = m.Var(value=1)
+vy = m.Var(value=-3)
+vz = m.Var(value=-100)
 
-# Acceleration
-ax = m.Var(value=0)
-ay = m.Var(value=-9.8)
-
-totalmass = m.Param(value=drymass)
-
-# Equations -----------------------------------------------------------------------------------------------------------
-
-#time
-#m.Equation(t)
-
-# Position
-m.Equation(x.dt() == vx)
+# Equation - Newtonian
+m.Equation(z.dt() == vz)
 m.Equation(y.dt() == vy)
+m.Equation(x.dt() == vx)
 
-# Velocity
-m.Equation(vx.dt() == ax)
-m.Equation(vy.dt() == ay)
+# Drag
+Dragx = m.Intermediate(Cd*ρ*(vx**2)*Ax/2.0)
+Dragy = m.Intermediate(Cd*ρ*(vy**2)*Ay/2.0)
+Dragz = m.Intermediate(Cd*ρ*(vz**2)*Az/2.0)
 
 # Acceleration
-m.Equation(ay == (Thrusty/totalmass - g))
-m.Equation(ax == Thrustx/totalmass)
+# abs/v = the direction of the velocity
+m.Equation(vz.dt() == -g + (Thrustz-(m.abs(vz)/vz)*Dragz)/mass)
+m.Equation(vy.dt() == 0 + (Thrusty-(m.abs(vy)/vy)*Dragy)/mass)
+m.Equation(vx.dt() == 0 + (Thrustx-(m.abs(vx)/vx)*Dragx)/mass)
 
-# Objective
-m.Obj(last*(y**2 + vy**2))
-m.Obj(last*(vx**2 + x**2))
-# m.Obj(0.001 * (ax**2) + 0.001*(ay**2))
+# ---- Main Newtonian Movement ----------------------------------
 
-#%% Tuning
-#global
-m.options.IMODE = 5
-
-#%% Solve
+m.options.IMODE = 4
 m.solve()
 
-#%% Plot solution
-plt.figure()
 plt.subplot(4, 1, 1)
-plt.plot(m.time, ax.value, 'r-', linewidth=1, label='ax')
-plt.plot(m.time, ay.value, 'b-', linewidth=1, label='ay')
-plt.ylabel('Thrust')
+plt.plot(m.time, z.value, label='Altitude')
 plt.legend(loc='best')
-
-plt.subplot(4, 1, 2)
-plt.plot(m.time, vx.value, 'b--', linewidth=1, label='vx')
-plt.plot(m.time, vy.value, 'r--', linewidth=1, label='vy')
+plt.subplot(4,1,2)
+plt.plot(m.time, vz.value, label='vz')
 plt.legend(loc='best')
-plt.ylabel('Velocity')
-
-plt.subplot(4, 1, 3)
-plt.plot(m.time, y.value, 'g:', linewidth=1)
-plt.legend(['y'], loc='best')
-plt.ylabel('Position')
-
-plt.subplot(4, 1, 4)
-plt.plot(m.time, x.value, 'r:', linewidth=1)
-plt.legend(['x'], loc='best')
-plt.ylabel('Position')
-
-
+plt.subplot(4,1,3)
+plt.plot(m.time, x.value, 'r', label='x')
+plt.plot(m.time, y.value, 'b', label='y')
+plt.legend(loc='best')
+plt.subplot(4,1,4)
+plt.plot(m.time, vx.value, 'r', label='vx')
+plt.plot(m.time, vy.value, 'b', label='vy')
+plt.legend(loc='best')
 plt.show()

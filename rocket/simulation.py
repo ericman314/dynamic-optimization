@@ -29,6 +29,11 @@ def dot(a, b):
 def length(a):
   return math.sqrt(a.x**2 + a.y**2 + a.z**2)
 
+def norm(a):
+  anorm = Vec3(a)
+  anorm.normalize()
+  return anorm
+
 class MyApp(ShowBase):
  
   def __init__(self):
@@ -69,16 +74,12 @@ class MyApp(ShowBase):
     self.f9Height = 47         # Height of F9 in meters
     self.f9COMoffset = -8            # Center of mass relative to center of body, in meters
     
-    # Initial Conditions
-    initX = 0
-    initY = 0
-    initZ = 20
 
     # Simulation variables    
     self.propLoad = 0.1 * self.f9PropMass    # Amount of full-tank propellent remaining
     self.gimbalX = 0      # Degrees
     self.gimbalY = 0    # Degrees
-    self.throttle = 1.0  # Fraction between f9MinimumThrottle and 1.0
+    self.throttle = 0.0  # Fraction between f9MinimumThrottle and 1.0
 
     # Make the rocket
     self.f9BodyNP = self.render.attachNewNode(BulletRigidBodyNode('RocketBody'))
@@ -91,10 +92,14 @@ class MyApp(ShowBase):
       self.f9BodyNP.node().addShape(leg, TransformState.makePosHpr(Vec3(6*math.cos(i*math.pi/2),6*math.sin(i*math.pi/2),-self.f9Height*0.5-self.f9COMoffset),Vec3(i*90,0,30)))
     
 
+    # Set initial position/velocity
     
     self.f9BodyNP.node().setMass(self.f9BodyMass + self.propLoad)
-    self.f9BodyNP.setPos(initX, initY, initZ)
-    self.f9BodyNP.setHpr(0, 0, 0)
+    self.f9BodyNP.setPos(0, 0, 20000)
+    self.f9BodyNP.setHpr(0, 170, 0)
+    self.f9BodyNP.node().set_linear_velocity(LVector3f(0, 0, 0))
+    self.f9BodyNP.node().set_angular_velocity(LVector3f(0, 0, 3))
+    
 
 
     self.world.attachRigidBody(self.f9BodyNP.node())
@@ -118,14 +123,9 @@ class MyApp(ShowBase):
     self.f9BodyNP.node().set_restitution(0.5)
 
 
-    # Set initial position/velocity
-
-    self.f9BodyNP.node().set_linear_velocity(LVector3f(0, 0, 0))
-    self.f9BodyNP.node().set_angular_velocity(LVector3f(0, 0, 1))
-    
-
 
     self.npDragForce = LineNodePath(self.render, 'Drag', thickness=4, colorVec=VBase4(1, 0, 0, 1))
+    self.npLiftForce = LineNodePath(self.render, 'Lift', thickness=4, colorVec=VBase4(0, 0.5, 1, 1))
     self.npGravForce = LineNodePath(self.render, 'Gravity', thickness=4, colorVec=VBase4(0.5, 0, 0.5, 1))
     self.npThrustForce = LineNodePath(self.render, 'Thrust', thickness=4, colorVec=VBase4(1, 0.5, 0, 1))
   
@@ -216,12 +216,34 @@ class MyApp(ShowBase):
     fvGravWorld = Vec3(0, 0, -(self.f9BodyMass + self.propLoad) * g)
     fpGravWorld = Point3(0, 0, 0)
 
-    # Calclate drag
+    atmosPress, atmosTemp, atmosRho = air_dens(f9Pos.z)
 
-    # Just use a very simple expression for now, no angle of attack or anything
-    
-    fvDragWorld = Vec3(0,0,0)
-    fpDragWorld = Point3(0,0,-self.f9COMoffset)    # Center of vehicle
+
+    # Calclate drag
+    # Get relative air speed (TODO: Include wind)
+    vRelAir = -f9Vel
+    dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
+
+    # Get angle of attack (deg)
+    AOA = math.acos(dot(norm(vRelAir), norm(-f9ZWorld)))
+
+    # Very simple and probably not correct drag coefficient
+    Cd = 1.5
+
+    # Very simple and probably not correct area
+    dragArea = 10.8 + (174.3-10.8) * math.sin(AOA)
+
+    dragForceMag = dynPress * Cd * dragArea
+        
+    fvDragWorld = norm(vRelAir) * dragForceMag 
+    fpDragWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
+
+    # Calculate lift
+    vLiftDirection = norm(vRelAir - vRelAir.project(f9ZWorld))
+    if AOA > 0.5*math.pi:
+      vLiftDirection = -vLiftDirection
+    fvLiftWorld = vLiftDirection * (math.sin(AOA*2) * 174.3 * dynPress)
+    fpLiftWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
 
 
     # Update mass (each engine consumes 300kg/s of propellent at 100% throttle)
@@ -233,8 +255,7 @@ class MyApp(ShowBase):
 
     # Thrust
 
-    atmosPress, atmosTemp, atmosRho = air_dens(f9Pos.z)
-
+    
 
     thrust = self.throttle * (self.f9ThrustSL * atmosPress / 101325 + self.f9ThrustVac * (1 - atmosPress / 101325))
     fvThrustLocal = Vec3(0, 0, thrust)
@@ -246,15 +267,13 @@ class MyApp(ShowBase):
     # Transform fvDrag and fpDrag into world coordinates (but offset by the center of mass)
     
 
-    # fpDragWorld = quat.xform(fpDragLocal)
-    # fvDragWorld = quat.xform(fvDragLocal)
-
     fpThrustWorld = quat.xform(fpThrustLocal)
     fvThrustWorld = quat.xform(fvThrustLocal)
     
 
     # Apply forces (arguments to applyForce are in world coordinates, offset by the center of mass)
     self.f9BodyNP.node().applyForce(fvDragWorld, fpDragWorld)
+    self.f9BodyNP.node().applyForce(fvLiftWorld, fpLiftWorld)
     self.f9BodyNP.node().applyForce(fvGravWorld, fpGravWorld)
     self.f9BodyNP.node().applyForce(fvThrustWorld, fpThrustWorld)
 
@@ -268,6 +287,11 @@ class MyApp(ShowBase):
     self.npDragForce.reset()
     self.npDragForce.drawArrow2d(fpDragWorld + comWorld, fpDragWorld + fvDragWorld * forceArrowScale + comWorld, 45, 2)
     self.npDragForce.create()
+
+
+    self.npLiftForce.reset()
+    self.npLiftForce.drawArrow2d(fpDragWorld + comWorld, fpLiftWorld + fvLiftWorld * forceArrowScale + comWorld, 45, 2)
+    self.npLiftForce.create()
 
     self.npGravForce.reset()
     self.npGravForce.drawArrow2d(fpGravWorld + comWorld, fpGravWorld + fvGravWorld * forceArrowScale + comWorld, 45, 2)
@@ -285,7 +309,9 @@ class MyApp(ShowBase):
     osdText.append('Downrange (km): {:.2f}'.format(math.sqrt(f9Pos.x**2 + f9Pos.y**2)*1e-3))
     osdText.append('Gee (axial): {:0.2f}'.format(geeAxial))
     osdText.append('Gee (lateral): {:0.2f}'.format(geeLateral))
+    osdText.append('AOA (deg): {:.2f}'.format(AOA / math.pi * 180))
     osdText.append('Ambient pressure (kPa): {:.2f}'.format(atmosPress/1000))
+    osdText.append('Dynamic pressure (kPa): {:.2f}'.format(dynPress/1000))
     osdText.append('')
     osdText.append('Throttle (%): {:.0f}'.format(self.throttle * 100))
     osdText.append('Thrust (kN): {:.0f}'.format(thrust/1000))
@@ -296,7 +322,7 @@ class MyApp(ShowBase):
 
 
     # Simple controller
-    self.throttle = (1000 - f9Pos.z - f9Vel.z*10) / 100
+    # self.throttle = (1000 - f9Pos.z - f9Vel.z*10) / 100
     if self.throttle > 1: self.throttle = 1
     if self.throttle < 0: self.throttle = 0
 

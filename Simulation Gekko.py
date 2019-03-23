@@ -39,6 +39,10 @@ Cd = m.Const(value=0.5)  # Similar for sphere and cone shape
 
 # ---- Drag -----------------------------------------------------
 
+# ---- Angular --------------------------------------------------
+# I had this all coded, but it got deleted because I don't know github so Im going to do this tomorrow or sunday.
+# ---- Angular --------------------------------------------------
+
 # ---- Main Newtonian Movement ----------------------------------
 # Position
 x = m.Var(value=5)

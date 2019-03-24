@@ -260,6 +260,33 @@ class MyApp(ShowBase):
 
     atmosPress, atmosTemp, atmosRho = air_dens(f9Pos.z)
 
+
+    # Calclate drag
+    # Get relative air speed (TODO: Include wind)
+    vRelAir = -f9Vel
+    dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
+
+    # Get angle of attack (deg)
+    AOA = math.acos(dot(norm(vRelAir), norm(-f9ZWorld)))
+
+    # Very simple and probably not correct drag coefficient
+    Cd = 1.5
+
+    # Very simple and probably not correct area
+    dragArea = 10.8 + (174.3-10.8) * math.sin(AOA)
+
+    dragForceMag = dynPress * Cd * dragArea
+        
+    fvDragWorld = norm(vRelAir) * dragForceMag 
+    fpDragWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
+
+    # Calculate lift
+    vLiftDirection = norm(vRelAir - vRelAir.project(f9ZWorld))
+    if AOA > 0.5*math.pi:
+      vLiftDirection = -vLiftDirection
+    fvLiftWorld = vLiftDirection * (math.sin(AOA*2) * 174.3 * dynPress)
+    fpLiftWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
+
     # Calclate drag
     # Get relative air speed (TODO: Include wind)
     vRelAir = -f9Vel
@@ -434,7 +461,6 @@ class MyApp(ShowBase):
     osdText.append('Gimbal (deg): {:5.2f} x {:5.2f}'.format(self.gimbalX, self.gimbalY))
 
     self.npTelemetryFeed.setText('\n'.join(osdText))
-
 
 
 

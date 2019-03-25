@@ -10,7 +10,11 @@ from panda3d.bullet import BulletWorld, BulletCylinderShape, BulletPlaneShape, B
 from Environ_dependancies import air_dens, Fg
 from model import runController
 import sys
+import os.path
 import math
+from time import time, strftime, localtime, sleep
+import numpy as np
+import matplotlib.pyplot as plt
 
 import imagery
 import falcon
@@ -172,9 +176,9 @@ class MyApp(ShowBase):
     self.taskMgr.setupTaskChain('controller', numThreads = 1)
     self.taskMgr.add(self.runController, "Controller", taskChain='controller')
 
-    # TODO: Clean shutdown
-    self.accept('escape', sys.exit) 
+    self.accept('escape', self.userExit) 
 
+    self.exitFunc = self.myExitFunc
 
 
     # Create a shared data dictionary to pass data to and from the controller
@@ -192,6 +196,31 @@ class MyApp(ShowBase):
     self.f9RollLast = f9Roll
     self.f9PitchLast = f9Pitch
     self.f9YawLast = f9Yaw
+
+    # Initialize arrays to store detailed telemetry data for debugging, plotting, optimizing, etc.
+    self.pltTime = np.zeros(0)
+    self.pltX = np.zeros(0)
+    self.pltY = np.zeros(0)
+    self.pltZ = np.zeros(0)
+    self.pltRoll = np.zeros(0)
+    self.pltYaw = np.zeros(0)
+    self.pltPitch = np.zeros(0)
+    self.pltXdot = np.zeros(0)
+    self.pltYdot = np.zeros(0)
+    self.pltZdot = np.zeros(0)
+    self.pltProp = np.zeros(0)
+    self.pltThrottle = np.zeros(0)
+    self.pltGimbalX = np.zeros(0)
+    self.pltGimbalY = np.zeros(0)
+    self.pltGridX = np.zeros(0)
+    self.pltGridY = np.zeros(0)
+    self.pltGeeAxial = np.zeros(0)
+    self.pltGeeLateral = np.zeros(0)
+    self.pltAOA = np.zeros(0)
+    
+    self.pltSaveInterval = 1    # seconds
+    self.nextPltSaveTime = 0
+
 
   # Perform the physics here
   def tick(self, task):
@@ -211,7 +240,6 @@ class MyApp(ShowBase):
     self.gimbalY = max(min(self.gimbalY, 7), -7)
     self.gridX = max(min(self.gridX, 30), -30)
     self.gridY = max(min(self.gridY, 30), -30)
-
 
     # Run Bullet simulation (where is globalClock defined? Well it works somehow...)
     dt = globalClock.getDt()
@@ -433,10 +461,33 @@ class MyApp(ShowBase):
     osdText.append('Thrust (kN): {:.0f}'.format(thrust/1000))
     osdText.append('Propellent (%): {:.1f}'.format(self.propLoad / self.f9PropMass * 100))
     osdText.append('Gimbal (deg): {:5.2f} x {:5.2f}'.format(self.gimbalX, self.gimbalY))
+    osdText.append('Grid fins (deg): {:5.2f} x {:5.2f}'.format(self.gridX, self.gridY))
 
     self.npTelemetryFeed.setText('\n'.join(osdText))
 
 
+    # Save telemetry to arrays
+    if task.time > self.nextPltSaveTime:
+      self.nextPltSaveTime += self.pltSaveInterval
+      self.pltTime =       np.append(self.pltTime,       [task.time])
+      self.pltX =          np.append(self.pltX,          [f9Pos.x])
+      self.pltY =          np.append(self.pltY,          [f9Pos.y])
+      self.pltZ =          np.append(self.pltZ,          [f9Pos.z])
+      self.pltRoll =       np.append(self.pltRoll,       [f9Roll])
+      self.pltYaw =        np.append(self.pltYaw,        [f9Yaw])
+      self.pltPitch =      np.append(self.pltPitch,      [f9Pitch])
+      self.pltXdot =       np.append(self.pltXdot,       [f9Vel.x])
+      self.pltYdot =       np.append(self.pltYdot,       [f9Vel.y])
+      self.pltZdot =       np.append(self.pltZdot,       [f9Vel.z])
+      self.pltProp =       np.append(self.pltProp,       [self.f9PropMass])
+      self.pltThrottle =   np.append(self.pltThrottle,   [self.throttle])
+      self.pltGimbalX =    np.append(self.pltGimbalX,    [self.gimbalX])
+      self.pltGimbalY =    np.append(self.pltGimbalY,    [self.gimbalY])
+      self.pltGridX =      np.append(self.pltGridX,      [self.gridX])
+      self.pltGridY =      np.append(self.pltGridY,      [self.gridY])
+      self.pltGeeAxial =   np.append(self.pltGeeAxial,   [geeAxial])
+      self.pltGeeLateral = np.append(self.pltGeeLateral, [geeLateral])
+      self.pltAOA =        np.append(self.pltAOA,        [AOA/math.pi*180])
 
 
     with self.lock:
@@ -482,6 +533,26 @@ class MyApp(ShowBase):
 
     # Immediately begin this task again
     return Task.cont
+
+  def myExitFunc(self):
+    print 'Shutting down'
+
+    dirName = 'simulationData'
+    fnPrefix = os.path.join(dirName, strftime('%Y-%m-%d %H:%M:%S', localtime()))
+    fnData = fnPrefix + ' data.csv'
+    print 'Writing data to ' + fnData
+
+    data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA)).transpose()
+    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)'
+    np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top)
+
+    print 'Generating a few interesting plots'
+
+    plt.plot(figsize=(11,8))
+    plt.plot(self.pltTime, self.pltX)
+    plt.plot(self.pltTime, self.pltY)
+    plt.plot(self.pltTime, self.pltZ)
+    plt.show()
 
 
 

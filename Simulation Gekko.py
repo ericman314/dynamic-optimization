@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 m = GEKKO()
 n = 1000
-m.time = np.linspace(0, 25, n)
+m.time = np.linspace(0, 5, 20)
 
 # Constants
 g = m.Const(value=9.8)
@@ -24,9 +24,10 @@ mass = m.Param(value=1000)
 Gimbalx = m.Param(value=1.57)  # Angle from linear thrust in x direction
 Gimbaly = m.Param(value=0.3)  # Angle from linear thrust in y direction
 
-Thrustx = m.Intermediate(Thrust*m.sin(Gimbalx))
-Thrusty = m.Intermediate(Thrust*m.sin(Gimbaly))
-Thrustz = m.Intermediate(Thrust*(m.cos(Gimbalx)+m.cos(Gimbaly))/2.0)
+# Thrust with respect to coordinate fixed to rocket.
+Thrustx_i = m.Intermediate(Thrust*m.sin(Gimbalx))
+Thrusty_i = m.Intermediate(Thrust*m.sin(Gimbaly))
+Thrustz_i = m.Intermediate(Thrust*(m.cos(Gimbalx)+m.cos(Gimbaly))/2.0)
 # ---- Control --------------------------------------------------
 
 # ---- Drag -----------------------------------------------------
@@ -38,10 +39,34 @@ Az = m.Const(value=0.2)
 Cd = m.Const(value=0.5)  # Similar for sphere and cone shape
 
 # ---- Drag -----------------------------------------------------
+L = m.Const(value=8.0)  # Length of Rocket
+I_rocket = m.Intermediate((1.0/12.0)*mass*L**2)  # Moment of inertia
+d = m.Intermediate(L-I_rocket)  # Distance from moment of inertia
+# ---- Angular --------------------------------------------------
+tau_x = m.Intermediate(Thrustx_i*d)  # x Torque
+tau_y = m.Intermediate(Thrusty_i*d)  # y Torque
+
+θ_x = m.Var(value=0)  # x angle
+θ_y = m.Var(value=0)  # y angle
+w_x = m.Var(value=0)  # Rotational velocity, x direction
+w_y = m.Var(value=0)
+m.Equation(w_x.dt() == tau_x/I_rocket)
+m.Equation(w_y.dt() == tau_y/I_rocket)
+m.Equation(θ_x.dt() == w_x)
+m.Equation(θ_y.dt() == w_y)
 
 # ---- Angular --------------------------------------------------
-# I had this all coded, but it got deleted because I don't know github so Im going to do this tomorrow or sunday.
-# ---- Angular --------------------------------------------------
+
+# ---- Thrust Transformation -----------------------------------
+Pi = m.Const(value=3.14159265359)
+θ_x_sign = m.Intermediate(m.abs(θ_x) / θ_x)
+θ_y_sign = m.Intermediate(m.abs(θ_y) / θ_y)
+θ_x_2 = m.Intermediate(-θ_x_sign*m.abs(m.abs(θ_x) - (Pi/2)))  # Complementary Angle
+θ_y_2 = m.Intermediate(-θ_y_sign*m.abs(m.abs(θ_y) - (Pi/2)))  # Complementary Angle
+Thrustz = m.Intermediate((Thrustz_i*m.cos(θ_x)+Thrustz_i*m.cos(θ_y))/2.0+Thrustx_i*m.cos(θ_x_2)+Thrusty_i*m.cos(θ_y_2))
+Thrustx = m.Intermediate(Thrustz_i*m.sin(θ_x)+Thrustx_i*m.sin(θ_x_2))
+Thrusty = m.Intermediate(Thrustz_i*m.sin(θ_y)+Thrusty_i*m.sin(θ_y_2))
+# ---- Thrust Transformation -----------------------------------
 
 # ---- Main Newtonian Movement ----------------------------------
 # Position
@@ -66,27 +91,29 @@ Dragz = m.Intermediate(Cd*ρ*(vz**2)*Az/2.0)
 
 # Acceleration
 # abs/v = the direction of the velocity
-m.Equation(vz.dt() == -g + (Thrustz-(m.abs(vz)/vz)*Dragz)/mass)
-m.Equation(vy.dt() == 0 + (Thrusty-(m.abs(vy)/vy)*Dragy)/mass)
-m.Equation(vx.dt() == 0 + (Thrustx-(m.abs(vx)/vx)*Dragx)/mass)
+m.Equation(vz.dt() == -g + (Thrustz_i-(m.abs(vz)/vz)*Dragz)/mass)  # Replace Thrustz_i with Thrustz (currently broke)
+m.Equation(vy.dt() == 0 + (Thrusty_i-(m.abs(vy)/vy)*Dragy)/mass)
+m.Equation(vx.dt() == 0 + (Thrustx_i-(m.abs(vx)/vx)*Dragx)/mass)
 
 # ---- Main Newtonian Movement ----------------------------------
 
-m.options.IMODE = 4
+m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
 m.solve()
 
-plt.subplot(4, 1, 1)
+plt.subplot(5, 1, 1)
 plt.plot(m.time, z.value, label='Altitude')
 plt.legend(loc='best')
-plt.subplot(4,1,2)
+plt.subplot(5,1,2)
 plt.plot(m.time, vz.value, label='vz')
 plt.legend(loc='best')
-plt.subplot(4,1,3)
+plt.subplot(5,1,3)
 plt.plot(m.time, x.value, 'r', label='x')
 plt.plot(m.time, y.value, 'b', label='y')
 plt.legend(loc='best')
-plt.subplot(4,1,4)
+plt.subplot(5,1,4)
 plt.plot(m.time, vx.value, 'r', label='vx')
 plt.plot(m.time, vy.value, 'b', label='vy')
 plt.legend(loc='best')
+plt.subplot(5, 1, 5)
+plt.plot(m.time, Thrust.value, 'r', label='vx')
 plt.show()

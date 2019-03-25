@@ -315,7 +315,7 @@ class MyApp(ShowBase):
   # Runs on a separate thread
   def runController(self, task):
     
-    print 'Controller began on frame', task.frame
+    print ('Controller began on frame', task.frame)
     
     with self.lock:
       # TODO: Read current telemetry from shared data

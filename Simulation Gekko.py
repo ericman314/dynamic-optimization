@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 
 m = GEKKO()
-n = 1000
-m.time = np.linspace(0, 5, 20)
+n = 100
+m.time = np.linspace(0, 10, n)
 
 # Constants
 g = m.Const(value=9.8)
@@ -13,16 +13,23 @@ drymass = m.Const(value=1000)
 
 # ---- Control --------------------------------------------------
 # Thrust
-Impulse = np.zeros(len(m.time))
-Impulse[int(0.2*n):int(0.4*n)] = 1e4
-Impulse[int(0.7*n):int(0.9*n)] = 2.3e5
+Impulse = np.zeros(len(m.time))  # Thrust Step test
+Impulse[int(0.2*n):int(0.4*n)] = 0.5e5
+Impulse[int(0.7*n):int(0.9*n)] = 1.4e5
 
 Thrust = m.Param(value=Impulse)
 mass = m.Param(value=1000)
 
 # Vectorize Thrust
-Gimbalx = m.Param(value=1.57)  # Angle from linear thrust in x direction
-Gimbaly = m.Param(value=0.3)  # Angle from linear thrust in y direction
+Pi = 3.14159265359
+Gx, Gy = np.zeros(len(m.time)), np.zeros(len(m.time))  # Gimbal Step test
+Gx[int(0.2*n):int(0.3*n)] = Pi/2.0
+Gx[int(0.8*n):int(0.9*n)] = -Pi/2.0
+Gy[int(0.3*n):int(0.4*n)] = Pi/4.0
+Gy[int(0.7*n):int(0.8*n)] = -Pi/2.0
+Pi = m.Const(value=Pi)
+Gimbalx = m.Param(value=Gx)  # Angle from linear thrust in x direction
+Gimbaly = m.Param(value=Gy)  # Angle from linear thrust in y direction
 
 # Thrust with respect to coordinate fixed to rocket.
 Thrustx_i = m.Intermediate(Thrust*m.sin(Gimbalx))
@@ -58,7 +65,7 @@ m.Equation(θ_y.dt() == w_y)
 # ---- Angular --------------------------------------------------
 
 # ---- Thrust Transformation -----------------------------------
-Pi = m.Const(value=3.14159265359)
+
 θ_x_sign = m.Intermediate(m.abs(θ_x) / θ_x)
 θ_y_sign = m.Intermediate(m.abs(θ_y) / θ_y)
 θ_x_2 = m.Intermediate(-θ_x_sign*m.abs(m.abs(θ_x) - (Pi/2)))  # Complementary Angle
@@ -97,23 +104,28 @@ m.Equation(vx.dt() == 0 + (Thrustx_i-(m.abs(vx)/vx)*Dragx)/mass)
 
 # ---- Main Newtonian Movement ----------------------------------
 
+m.options.NODES = 3
 m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
 m.solve()
 
-plt.subplot(5, 1, 1)
+plt.subplot(6, 1, 1)
 plt.plot(m.time, z.value, label='Altitude')
 plt.legend(loc='best')
-plt.subplot(5,1,2)
+plt.subplot(6,1,2)
 plt.plot(m.time, vz.value, label='vz')
 plt.legend(loc='best')
-plt.subplot(5,1,3)
+plt.subplot(6,1,3)
 plt.plot(m.time, x.value, 'r', label='x')
 plt.plot(m.time, y.value, 'b', label='y')
 plt.legend(loc='best')
-plt.subplot(5,1,4)
+plt.subplot(6,1,4)
 plt.plot(m.time, vx.value, 'r', label='vx')
 plt.plot(m.time, vy.value, 'b', label='vy')
 plt.legend(loc='best')
-plt.subplot(5, 1, 5)
-plt.plot(m.time, Thrust.value, 'r', label='vx')
+plt.subplot(6, 1, 5)
+plt.plot(m.time, Thrust.value, 'k--', label='Thrust')
+plt.legend(loc='best')
+plt.subplot(6, 1, 6)
+plt.plot(m.time, Gimbalx.value, 'r--', label='Gimbal x')
+plt.plot(m.time, Gimbaly.value, 'b--', label='Gimbal y')
 plt.show()

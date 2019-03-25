@@ -23,10 +23,10 @@ mass = m.Param(value=1000)
 # Vectorize Thrust
 Pi = 3.14159265359
 Gx, Gy = np.zeros(len(m.time)), np.zeros(len(m.time))  # Gimbal Step test
-Gx[int(0.2*n):int(0.3*n)] = Pi/2.0
-Gx[int(0.8*n):int(0.9*n)] = -Pi/2.0
-Gy[int(0.3*n):int(0.4*n)] = Pi/4.0
-Gy[int(0.7*n):int(0.8*n)] = -Pi/2.0
+Gx[int(0.2*n):int(0.3*n)] = 0
+Gx[int(0.8*n):int(0.9*n)] = 0
+Gy[int(0.3*n):int(0.4*n)] = 0.03
+Gy[int(0.7*n):int(0.8*n)] = -0.03
 Pi = m.Const(value=Pi)
 Gimbalx = m.Param(value=Gx)  # Angle from linear thrust in x direction
 Gimbaly = m.Param(value=Gy)  # Angle from linear thrust in y direction
@@ -57,8 +57,8 @@ tau_y = m.Intermediate(Thrusty_i*d)  # y Torque
 θ_y = m.Var(value=0)  # y angle
 w_x = m.Var(value=0)  # Rotational velocity, x direction
 w_y = m.Var(value=0)
-m.Equation(w_x.dt() == tau_x/I_rocket)
-m.Equation(w_y.dt() == tau_y/I_rocket)
+m.Equation(w_x.dt()*I_rocket == tau_x)
+m.Equation(w_y.dt()*I_rocket == tau_y)
 m.Equation(θ_x.dt() == w_x)
 m.Equation(θ_y.dt() == w_y)
 
@@ -66,13 +66,11 @@ m.Equation(θ_y.dt() == w_y)
 
 # ---- Thrust Transformation -----------------------------------
 
-θ_x_sign = m.Intermediate(m.abs(θ_x) / θ_x)
-θ_y_sign = m.Intermediate(m.abs(θ_y) / θ_y)
-θ_x_2 = m.Intermediate(-θ_x_sign*m.abs(m.abs(θ_x) - (Pi/2)))  # Complementary Angle
-θ_y_2 = m.Intermediate(-θ_y_sign*m.abs(m.abs(θ_y) - (Pi/2)))  # Complementary Angle
-Thrustz = m.Intermediate((Thrustz_i*m.cos(θ_x)+Thrustz_i*m.cos(θ_y))/2.0+Thrustx_i*m.cos(θ_x_2)+Thrusty_i*m.cos(θ_y_2))
-Thrustx = m.Intermediate(Thrustz_i*m.sin(θ_x)+Thrustx_i*m.sin(θ_x_2))
-Thrusty = m.Intermediate(Thrustz_i*m.sin(θ_y)+Thrusty_i*m.sin(θ_y_2))
+θ_x_2 = m.Intermediate(m.abs(m.abs(θ_x) - (Pi/2)))  # Complementary Angle
+θ_y_2 = m.Intermediate(m.abs(m.abs(θ_y) - (Pi/2)))  # Complementary Angle
+Thrustz = m.Intermediate((Thrustz_i*m.cos(θ_x)+Thrustz_i*m.cos(θ_y))/2.0-Thrustx_i*m.sin(θ_x)-Thrusty_i*m.sin(θ_y))
+Thrustx = m.Intermediate(Thrustz_i*m.sin(θ_x)+Thrustx_i*m.sin(θ_x))
+Thrusty = m.Intermediate(Thrustz_i*m.sin(θ_y)+Thrusty_i*m.sin(θ_y))
 # ---- Thrust Transformation -----------------------------------
 
 # ---- Main Newtonian Movement ----------------------------------
@@ -98,34 +96,43 @@ Dragz = m.Intermediate(Cd*ρ*(vz**2)*Az/2.0)
 
 # Acceleration
 # abs/v = the direction of the velocity
-m.Equation(vz.dt() == -g + (Thrustz_i-(m.abs(vz)/vz)*Dragz)/mass)  # Replace Thrustz_i with Thrustz (currently broke)
-m.Equation(vy.dt() == 0 + (Thrusty_i-(m.abs(vy)/vy)*Dragy)/mass)
-m.Equation(vx.dt() == 0 + (Thrustx_i-(m.abs(vx)/vx)*Dragx)/mass)
+m.Equation(vz.dt() == -g + (Thrustz-(m.abs(vz)/vz)*Dragz)/mass)  # Replace Thrustz_i with Thrustz (currently broke)
+m.Equation(vy.dt() == 0 + (Thrusty-(m.abs(vy)/vy)*Dragy)/mass)
+m.Equation(vx.dt() == 0 + (Thrustx-(m.abs(vx)/vx)*Dragx)/mass)
 
 # ---- Main Newtonian Movement ----------------------------------
 
 m.options.NODES = 3
 m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
-m.solve()
+m.solve(Remote=False)
 
-plt.subplot(6, 1, 1)
+plt.subplot(7, 2, 1)
 plt.plot(m.time, z.value, label='Altitude')
 plt.legend(loc='best')
-plt.subplot(6,1,2)
+plt.subplot(7, 2, 2)
+plt.plot(m.time, w_x.value, label='w_x')
+plt.plot(m.time, w_y.value, label='w_y')
+plt.legend(loc='best')
+plt.subplot(7,2,3)
 plt.plot(m.time, vz.value, label='vz')
 plt.legend(loc='best')
-plt.subplot(6,1,3)
+plt.subplot(7,2,4)
 plt.plot(m.time, x.value, 'r', label='x')
 plt.plot(m.time, y.value, 'b', label='y')
 plt.legend(loc='best')
-plt.subplot(6,1,4)
+plt.subplot(7,2,5)
 plt.plot(m.time, vx.value, 'r', label='vx')
 plt.plot(m.time, vy.value, 'b', label='vy')
 plt.legend(loc='best')
-plt.subplot(6, 1, 5)
+plt.subplot(7,2,6)
+plt.plot(m.time, θ_x.value, 'r', label='θ_x')
+plt.plot(m.time, θ_y.value, 'b', label='θ_y')
+plt.legend(loc='best')
+plt.subplot(7, 2, 7)
 plt.plot(m.time, Thrust.value, 'k--', label='Thrust')
 plt.legend(loc='best')
-plt.subplot(6, 1, 6)
+plt.subplot(7, 2, 8)
 plt.plot(m.time, Gimbalx.value, 'r--', label='Gimbal x')
 plt.plot(m.time, Gimbaly.value, 'b--', label='Gimbal y')
+plt.legend(loc='best')
 plt.show()

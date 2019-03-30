@@ -24,10 +24,10 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 #initFilename = '50m-drop'
-initFilename = '40km-10%prop-750mpsdown'
+initFilename = '40km-5%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gridX-5'
+stepFilename = 'engineOn'
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
@@ -489,6 +489,7 @@ class MyApp(ShowBase):
     
     # Draw onscreen text
     osdText = []
+    osdText.append('Time (s): {:.1f}'.format(task.time))
     osdText.append('Speed (m/s): {:.1f}'.format(math.sqrt(f9Vel.x**2 + f9Vel.y**2 + f9Vel.z**2)))
     osdText.append('Altitude (km): {:.2f}'.format(f9Pos.z*1e-3))
     osdText.append('Downrange (km): {:.2f}'.format(math.sqrt(f9Pos.x**2 + f9Pos.y**2)*1e-3))
@@ -549,7 +550,7 @@ class MyApp(ShowBase):
 
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(-0, -160, 20))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(150, 0, 80))
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again

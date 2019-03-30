@@ -20,13 +20,28 @@ import imagery
 import falcon
 
 from math import pi, sin, cos
- 
+
+
+# Filename to read initial conditions from (don't include the .csv)
+#initFilename = '50m-drop'
+initFilename = '40km-10%prop-750mpsdown'
+
+# Filename to read step tests from (don't include the .csv)
+stepFilename = 'gridX-5'
+
+# Specify whether we are running the controller or the step tests
+shouldRunController = False
+shouldRunStepTests = True
+
+# Miscellaneous configs for Panda3d
 ConfigVariableDouble('default-far').setValue(20000000)
 ConfigVariableInt('framebuffer-multisample').setValue(1)
 ConfigVariableInt('multisamples').setValue(2)
 
+# Global constants
 g = 9.80665
 
+# Helper functions
 def dot(a, b):
   return a.x * b.x + a.y * b.y + a.z * b.z
 
@@ -38,6 +53,8 @@ def norm(a):
   anorm.normalize()
   return anorm
 
+
+
 class MyApp(ShowBase):
  
   def __init__(self):
@@ -46,7 +63,6 @@ class MyApp(ShowBase):
 
     # Set up the Bullet physics engine
     self.world = BulletWorld()
-    # self.world.setGravity(Vec3(0, 0, -g))
 
     debugNode = BulletDebugNode('Debug')
     debugNode.showWireframe(True)
@@ -59,14 +75,12 @@ class MyApp(ShowBase):
     self.world.setDebugNode(debugNP.node())
 
     # Make a ground for the rocket to land on
-    groundNP = self.render.attachNewNode(BulletRigidBodyNode('Ground'))
-    groundNP.setPos(0, 0, 0)
-    groundNP.node().addShape(BulletPlaneShape(Vec3(0, 0, 1), 1))
-    groundNP.node().set_restitution(0.5)
+    self.groundNP = self.render.attachNewNode(BulletRigidBodyNode('Ground'))
+    self.groundNP.setPos(0, 0, 0)
+    self.groundNP.node().addShape(BulletPlaneShape(Vec3(0, 0, 1), 1))
+    self.groundNP.node().set_restitution(0.5)
 
-    self.world.attachRigidBody(groundNP.node())
-
-    
+    self.world.attachRigidBody(self.groundNP.node())
 
     # Falcon 9 parameters
     self.f9ThrustSL = 7607000 / 9     # N, per engine
@@ -84,10 +98,13 @@ class MyApp(ShowBase):
     self.gimbalX = 0      # Degrees
     self.gimbalY = 0    # Degrees
     self.throttle = 0.0  # Fraction between f9MinimumThrottle and 1.0
-    self.gridXneg = 0.0   # Degrees
-    self.gridXpos = 0.0
-    self.gridYneg = 0.0
-    self.gridYpos = 0.0
+    self.engineOn = 0
+    self.gridX = 0.0   # Degrees
+    self.gridY = 0.0
+    self.gridNegX = 0.0   # Degrees
+    self.gridNegY = 0.0
+    self.gridPosX = 0.0   # Degrees
+    self.gridPosY = 0.0
 
     # Make the rocket
     self.f9BodyNP = self.render.attachNewNode(BulletRigidBodyNode('RocketBody'))
@@ -101,13 +118,19 @@ class MyApp(ShowBase):
     
 
     # Set initial position/velocity
-    
+    # X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg)
+    initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, self.propLoad = \
+      np.loadtxt(os.path.join('initialConditions', initFilename + '.csv'), delimiter=',', unpack=True)
+
     self.f9BodyNP.node().setMass(self.f9BodyMass + self.propLoad)
-    self.f9BodyNP.setPos(0, 0, 20000)
-    self.f9BodyNP.setHpr(0, 0, 0)
-    self.f9BodyNP.node().set_linear_velocity(LVector3f(0, 0, -500))
-    self.f9BodyNP.node().set_angular_velocity(LVector3f(0, 0, 0))
+    self.f9BodyNP.setPos(initX, initY, initZ)
+    self.f9BodyNP.setHpr(initRoll, initPitch, initYaw)
+    self.f9BodyNP.node().set_linear_velocity(LVector3f(initXdot, initYdot, initZdot))
     
+    # Load step tests
+    if shouldRunStepTests:
+      self.stepTests = np.loadtxt(os.path.join('stepTests', stepFilename + '.csv'), delimiter=',')
+      print self.stepTests
 
 
     self.world.attachRigidBody(self.f9BodyNP.node())
@@ -172,9 +195,10 @@ class MyApp(ShowBase):
     # Add the tick procedure to the main task manager.
     self.taskMgr.add(self.tick, "Tick")
 
-    # Set up a second thread for the controller
-    self.taskMgr.setupTaskChain('controller', numThreads = 1)
-    self.taskMgr.add(self.runController, "Controller", taskChain='controller')
+    if shouldRunController:
+      # Set up a second thread for the controller
+      self.taskMgr.setupTaskChain('controller', numThreads = 1)
+      self.taskMgr.add(self.runController, "Controller", taskChain='controller')
 
     self.accept('escape', self.userExit) 
 
@@ -221,18 +245,35 @@ class MyApp(ShowBase):
     self.pltSaveInterval = 1    # seconds
     self.nextPltSaveTime = 0
 
+    self.endTime = 0    # 0 = five seconds after landing
+
 
   # Perform the physics here
   def tick(self, task):
 
-    with self.lock:
-      # Read controller output from shared data
-      self.throttle = self.sharedData['throttle']
-      self.gimbalX = self.sharedData['gimbalX']
-      self.gimbalY = self.sharedData['gimbalY']
-      self.gridX = self.sharedData['gridX']
-      self.gridY = self.sharedData['gridY']
-      self.engineOn = self.sharedData['engineOn']
+    if shouldRunController:
+      with self.lock:
+        # Read controller output from shared data
+        self.throttle = self.sharedData['throttle']
+        self.gimbalX = self.sharedData['gimbalX']
+        self.gimbalY = self.sharedData['gimbalY']
+        self.gridX = self.sharedData['gridX']
+        self.gridY = self.sharedData['gridY']
+        self.engineOn = self.sharedData['engineOn']
+
+    if shouldRunStepTests:
+      # Find the right time
+      i = 0
+      while i+1 < self.stepTests.shape[0] and self.stepTests[i+1][0] < task.time:
+        i += 1
+      # Time (sec), Throttle (0-1), EngineOn (0 or 1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg)
+      self.throttle = self.stepTests[i, 1]
+      self.engineOn = self.stepTests[i, 2]
+      self.gimbalX = self.stepTests[i, 3]
+      self.gimbalY = self.stepTests[i, 4]
+      self.gridX = self.stepTests[i, 5]
+      self.gridY = self.stepTests[i, 6]
+      
 
     # Limit controller output
     self.throttle = max(min(self.throttle, 1.0), self.f9MinimumThrottle)
@@ -465,6 +506,13 @@ class MyApp(ShowBase):
 
     self.npTelemetryFeed.setText('\n'.join(osdText))
 
+    if self.endTime == 0 and f9Pos.z < 20:
+      print 'Rocket has landed or tipped over. Ending the simulation in 5 seconds.'
+      self.endTime = task.time + 5
+
+    if self.endTime > 0 and task.time > self.endTime:
+      self.userExit()
+
 
     # Save telemetry to arrays
     if task.time > self.nextPltSaveTime:
@@ -538,7 +586,8 @@ class MyApp(ShowBase):
     print 'Shutting down'
 
     dirName = 'simulationData'
-    fnPrefix = os.path.join(dirName, strftime('%Y-%m-%d %H:%M:%S', localtime()))
+    outputFilename = initFilename + '_' + stepFilename + '.csv'
+    fnPrefix = os.path.join(dirName, outputFilename)
     fnData = fnPrefix + ' data.csv'
     print 'Writing data to ' + fnData
 
@@ -548,10 +597,16 @@ class MyApp(ShowBase):
 
     print 'Generating a few interesting plots'
 
-    plt.plot(figsize=(11,8))
+    plt.figure(figsize=(11,8))
+    plt.subplot(2, 1, 1)
     plt.plot(self.pltTime, self.pltX)
     plt.plot(self.pltTime, self.pltY)
     plt.plot(self.pltTime, self.pltZ)
+    plt.subplot(2, 1, 2)
+    plt.plot(self.pltTime, self.pltXdot)
+    plt.plot(self.pltTime, self.pltYdot)
+    plt.plot(self.pltTime, self.pltZdot)
+    
     plt.show()
 
 

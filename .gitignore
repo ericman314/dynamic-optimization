@@ -106,3 +106,4 @@ rocket/imagery/.~lock.align-and-scale.xlsx#
 rocket/simulationData/*.csv
 rocket/simulationData/*.png
 
+.vscode/launch.json

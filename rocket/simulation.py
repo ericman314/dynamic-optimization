@@ -558,6 +558,8 @@ class MyApp(ShowBase):
   # Runs on a separate thread
   def runController(self, task):
     
+    print ('Controller began on frame', task.frame)
+    
     with self.lock:
       x = self.sharedData['x']
       y = self.sharedData['y']

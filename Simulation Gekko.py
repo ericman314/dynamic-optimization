@@ -1,7 +1,7 @@
 from gekko import GEKKO
 import numpy as np
 import matplotlib.pyplot as plt
-
+import random
 
 m = GEKKO()
 n = 100
@@ -135,4 +135,53 @@ plt.legend(loc='best')
 plt.subplot(7, 2, 9)
 plt.plot(m.time, Thrust.value, 'k--', label='Thrust')
 plt.legend(loc='best')
+plt.show()
+
+plt.figure(num=2, figsize=(10,8))
+plt.subplot2grid((15,2),(0,0), rowspan=3)
+plt.plot(m.time, z.value)
+plt.ylabel('Altitude '+r'$(m)$')
+
+plt.subplot2grid((15,2),(0,1), rowspan=5)
+plt.plot(m.time, w_x.value, label=r'$\omega_x$')
+plt.plot(m.time, w_y.value, label=r'$\omega_y$')
+plt.legend(loc='best')
+plt.ylabel('Rotational velocity '+ r'$(\frac{rotations}{sec})$')
+
+plt.subplot2grid((15,2),(3,0), rowspan=3)
+plt.plot(m.time, vz.value)
+plt.ylabel('Fall velocity '+r'$(\frac{m}{s})$')
+
+plt.subplot2grid((15,2),(5,1), rowspan=5)
+plt.plot(m.time, θ_x.value, 'r', label=r'$θ_x$')
+plt.plot(m.time, θ_y.value, 'b', label=r'$θ_y$')
+plt.legend(loc='best')
+plt.ylabel('Angle '+r'$(rad)$')
+
+plt.subplot2grid((15,2),(6,0), rowspan=3)
+plt.plot(m.time, vx.value, 'r', label=r'$v_x$')
+plt.plot(m.time, vy.value, 'b', label=r'$v_y$')
+plt.legend(loc='best')
+plt.ylabel('Velocity '+r'$(\frac{m}{s})$')
+
+plt.subplot2grid((15,2),(9,0), rowspan=3)
+plt.plot(m.time, x.value, 'r', label='x')
+plt.plot(m.time, y.value, 'b', label='y')
+plt.ylabel('Position '+r'$(m)$')
+plt.legend(loc='best')
+
+plt.subplot2grid((15,2),(10,1), rowspan=5)
+plt.plot(m.time, Gimbalx.value, 'r--', label=r'$Gimbal_X$')
+plt.plot(m.time, Gimbaly.value, 'b--', label=r'$Gimbal_Y$')
+plt.legend(loc='best')
+plt.ylabel('Gimbal '+r'$(rad)$')
+plt.xlabel('Time')
+
+plt.subplot2grid((15,2),(12,0), rowspan=3)
+plt.plot(m.time, Thrust.value, 'k--')
+plt.ylabel('Thrust')
+plt.xlabel('Time')
+
+plt.tight_layout()
+plt.subplots_adjust(top=0.95,wspace=0.3)
 plt.show()

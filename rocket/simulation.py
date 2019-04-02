@@ -8,7 +8,7 @@ from direct.gui.OnscreenText import OnscreenText
 from panda3d.core import Point3, Vec3, ConfigVariableDouble, ConfigVariableInt, DirectionalLight, AmbientLight, VBase4, LVector3f, AntialiasAttrib, TransformState, TextNode
 from panda3d.bullet import BulletWorld, BulletCylinderShape, BulletPlaneShape, BulletRigidBodyNode, X_up, Y_up, Z_up, BulletGenericConstraint, BulletDebugNode
 from Environ_dependancies import air_dens, Fg
-from model import runController
+from runModelController import runController
 import sys
 import os.path
 import math
@@ -130,7 +130,7 @@ class MyApp(ShowBase):
     # Load step tests
     if shouldRunStepTests:
       self.stepTests = np.loadtxt(os.path.join('stepTests', stepFilename + '.csv'), delimiter=',')
-      print self.stepTests
+      print (self.stepTests)
 
 
     self.world.attachRigidBody(self.f9BodyNP.node())
@@ -508,7 +508,7 @@ class MyApp(ShowBase):
     self.npTelemetryFeed.setText('\n'.join(osdText))
 
     if self.endTime == 0 and f9Pos.z < 20:
-      print 'Rocket has landed or tipped over. Ending the simulation in 5 seconds.'
+      print ('Rocket has landed or tipped over. Ending the simulation in 5 seconds.')
       self.endTime = task.time + 5
 
     if self.endTime > 0 and task.time > self.endTime:
@@ -580,25 +580,25 @@ class MyApp(ShowBase):
       self.sharedData['engineOn'] = result['engineOn']
       self.sharedData['time'] = task.time
 
-    print self.sharedData
+    print (self.sharedData)
 
     # Immediately begin this task again
     return Task.cont
 
   def myExitFunc(self):
-    print 'Shutting down'
+    print ('Shutting down')
 
     dirName = 'simulationData'
     outputFilename = initFilename + '_' + stepFilename + '.csv'
     fnPrefix = os.path.join(dirName, outputFilename)
     fnData = fnPrefix + ' data.csv'
-    print 'Writing data to ' + fnData
+    print ('Writing data to ' + fnData)
 
     data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA)).transpose()
     top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)'
     np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top)
 
-    print 'Generating a few interesting plots'
+    print ('Generating a few interesting plots')
 
     plt.figure(figsize=(11,8))
     plt.subplot(2, 1, 1)

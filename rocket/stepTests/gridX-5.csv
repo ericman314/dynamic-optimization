@@ -1,0 +1,5 @@
+# Time (sec), Throttle (0-1), Engine On (0 or 1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg)
+0, 0, 0, 0, 0, 0, 0
+10, 0, 0, 0, 0, 5, 0
+30, 0, 0, 0, 0, -5, 0
+50, 0, 0, 0, 0, 0, 0

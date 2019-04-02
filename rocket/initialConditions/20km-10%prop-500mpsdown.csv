@@ -1,0 +1,2 @@
+# X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg)
+0, 0, 20000, 0, 0, 0, 0, 0, -500, 41700

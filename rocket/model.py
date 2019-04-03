@@ -28,12 +28,6 @@ def getModel():
   m.options.NODES = 3
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
-
-  # # Set initial position/velocity
-  # # X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg)
-  # initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, initPropLoad = \
-  #   np.loadtxt(os.path.join('initialConditions', initFilename + '.csv'), delimiter=',', unpack=True)
-  
   # Constants
   g = m.Const(value=9.8)
   drymass = m.Const(value=1000)

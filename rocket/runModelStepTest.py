@@ -4,20 +4,11 @@ import os
 
 from model import getModel
 
-# # Filename to read initial conditions from (don't include the .csv)
-# #initFilename = '50m-drop'
-# initFilename = '40km-5%prop-750mpsdown'
-
-# # Filename to read step tests from (don't include the .csv)
-# stepFilename = 'gimbalX'
-
 # Load the results from the simulation
 simFilename = '40km-5%prop-750mpsdown_none'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
-
-
 simTime = sim[:,0]
 simX = sim[:,1]
 simY = sim[:,2]
@@ -35,7 +26,6 @@ simGimbalY = sim[:,13]
 simGridX = sim[:,14]
 simGridY = sim[:,15]
 
-
 # Create the model
 m = getModel()
 
@@ -49,45 +39,16 @@ m.vz.value = simZdot[0]
 m.θ_x.value = simYaw[0]  # x angle
 m.θ_y.value = simPitch[0]  # y angle
   
-
 m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
 m.time = simTime
 
-# # Time (sec), Throttle (0-1), EngineOn (0 or 1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg)
-# stepTests = np.loadtxt(os.path.join('stepTests', stepFilename + '.csv'), delimiter=',')
-
-# # The step test file has one row for every step change, but we need one row for every timestep.
-# # Create arrays to hold the MV values for each timestep.
-# stepThrottle = np.zeros(m.time.size)
-# stepEngineOn = np.zeros(m.time.size)
-# stepGimbalX = np.zeros(m.time.size)
-# stepGimbalY = np.zeros(m.time.size)
-# stepGridX = np.zeros(m.time.size)
-# stepGridY = np.zeros(m.time.size)
-
-# # Assign the step test values from the file to our per-timestep arrays
-# i = -1
-# j = -1
-# for t in m.time:
-#   i += 1
-#   # Find the right time
-
-#   while j+1 < stepTests.shape[0] and stepTests[j+1][0] < t:
-#     j += 1
-#   stepThrottle[i] = stepTests[j, 1]
-#   stepEngineOn[i] = stepTests[j, 2]
-#   stepGimbalX[i] = stepTests[j, 3]
-#   stepGimbalY[i] = stepTests[j, 4]
-#   stepGridX[i] = stepTests[j, 5]
-#   stepGridY[i] = stepTests[j, 6]
-
 # Set MVs
 m.Thrust.value = simThrottle
-#m.EngineOn.value = stepEngineOn
+#m.EngineOn.value = simEngineOn
 m.Gimbalx.value = simGimbalX
 m.Gimbaly.value = simGimbalY
-#m.Gridx.value = stepGridX
-#m.Gridy.value = stepGridY
+#m.Gridx.value = simGridX
+#m.Gridy.value = simGridY
 
 m.solve(Remote=False)
 
@@ -151,4 +112,3 @@ plt.subplots_adjust(top=0.95,wspace=0.3)
 
 plt.savefig(os.path.join('plots', simFilename + ' step test.png'))
 plt.show()
-

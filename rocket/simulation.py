@@ -27,7 +27,7 @@ from math import pi, sin, cos
 initFilename = '40km-5%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'engineOn'
+stepFilename = 'none'
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
@@ -246,6 +246,8 @@ class MyApp(ShowBase):
     self.nextPltSaveTime = 0
 
     self.endTime = 0    # 0 = five seconds after landing
+
+    self.hasLandedOrCrashed = False
 
 
   # Perform the physics here
@@ -509,6 +511,7 @@ class MyApp(ShowBase):
 
     if self.endTime == 0 and f9Pos.z < 20:
       print ('Rocket has landed or tipped over. Ending the simulation in 5 seconds.')
+      self.hasLandedOrCrashed = True
       self.endTime = task.time + 5
 
     if self.endTime > 0 and task.time > self.endTime:
@@ -516,7 +519,7 @@ class MyApp(ShowBase):
 
 
     # Save telemetry to arrays
-    if task.time > self.nextPltSaveTime:
+    if task.time > self.nextPltSaveTime and not self.hasLandedOrCrashed:
       self.nextPltSaveTime += self.pltSaveInterval
       self.pltTime =       np.append(self.pltTime,       [task.time])
       self.pltX =          np.append(self.pltX,          [f9Pos.x])

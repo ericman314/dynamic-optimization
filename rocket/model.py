@@ -22,18 +22,12 @@ import os.path
 # Gy[int(0.7*n):int(0.72*n)] = 0 # -0.01
 
 
-def getModel(initFilename):
+def getModel():
 
   m = GEKKO()
   m.options.NODES = 3
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
-
-  # Set initial position/velocity
-  # X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg)
-  initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, initPropLoad = \
-    np.loadtxt(os.path.join('initialConditions', initFilename + '.csv'), delimiter=',', unpack=True)
-  
   # Constants
   g = m.Const(value=9.8)
   drymass = m.Const(value=1000)
@@ -68,8 +62,8 @@ def getModel(initFilename):
   tau_x = m.Intermediate(Thrustx_i*d)  # x Torque
   tau_y = m.Intermediate(Thrusty_i*d)  # y Torque
 
-  m.θ_x = m.Var(value=initYaw)  # x angle
-  m.θ_y = m.Var(value=initPitch)  # y angle
+  m.θ_x = m.Var(value=0)  # x angle
+  m.θ_y = m.Var(value=0)  # y angle
   m.w_x = m.Var(value=0)  # Rotational velocity, x direction (Initial conditions for angular velocity not supported yet)
   m.w_y = m.Var(value=0)
   m.Equation(m.w_x.dt()*I_rocket == tau_x)
@@ -87,14 +81,14 @@ def getModel(initFilename):
 
   # ---- Main Newtonian Movement ----------------------------------
   # Position
-  m.x = m.Var(value=initX)
-  m.y = m.Var(value=initY)
-  m.z = m.Var(value=initZ)
+  m.x = m.Var(value=0)
+  m.y = m.Var(value=0)
+  m.z = m.Var(value=0)
 
   # Velocity
-  m.vx = m.Var(value=initXdot)
-  m.vy = m.Var(value=initYdot)
-  m.vz = m.Var(value=initZdot)
+  m.vx = m.Var(value=0)
+  m.vy = m.Var(value=0)
+  m.vz = m.Var(value=0)
 
   # Equation - Newtonian
   m.Equation(m.z.dt() == m.vz)

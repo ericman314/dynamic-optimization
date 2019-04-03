@@ -107,3 +107,9 @@ rocket/simulationData/*.csv
 rocket/simulationData/*.png
 
 .vscode/launch.json
+rocket/.vscode/settings.json
+rocket/simulation2d.py
+rocket/intro_ball.gif
+rocket/bulletHelloWorld.py
+*.png
+.vscode/launch.json

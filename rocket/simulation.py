@@ -590,8 +590,7 @@ class MyApp(ShowBase):
 
     dirName = 'simulationData'
     outputFilename = initFilename + '_' + stepFilename + '.csv'
-    fnPrefix = os.path.join(dirName, outputFilename)
-    fnData = fnPrefix + ' data.csv'
+    fnData = os.path.join(dirName, outputFilename)
     print ('Writing data to ' + fnData)
 
     data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA)).transpose()

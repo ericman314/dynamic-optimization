@@ -38,6 +38,7 @@ m.vy.value = simYdot[0]
 m.vz.value = simZdot[0]
 m.θ_x.value = simYaw[0]  # x angle
 m.θ_y.value = simPitch[0]  # y angle
+m.propMass.value = simProp[0]  
   
 m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
 m.time = simTime

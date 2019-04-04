@@ -30,15 +30,17 @@ def getModel():
 
   # Constants
   g = m.Const(value=9.8)
-  drymass = m.Const(value=1000)
+  drymass = m.Const(value=27200)
 
   m.Thrust = m.Param(value=0)
-  mass = m.Param(value=1000)
+  m.propMass = m.Var(value=1000)
 
   Pi = m.Const(value=np.pi)
   m.Gimbalx = m.Param(value=0)  # Angle from linear Thrust in x direction
   m.Gimbaly = m.Param(value=0)  # Angle from linear thrust in y direction
 
+  # Prop consumption (each engine consumes 300kg/s of propellent at 100% throttle)
+  m.Equation(m.propMass.dt() == -300 * m.Thrust) 
 
   # Thrust with respect to coordinate fixed to rocket.
   Thrustx_i = m.Intermediate(m.Thrust*m.sin(m.Gimbalx))
@@ -56,7 +58,7 @@ def getModel():
 
   # ---- Drag -----------------------------------------------------
   L = m.Const(value=8.0)  # Length of Rocket
-  I_rocket = m.Intermediate((1.0/12.0)*mass*L**2)  # Moment of inertia
+  I_rocket = m.Intermediate((1.0/12.0)*(m.propMass+drymass)*L**2)  # Moment of inertia
   d = m.Intermediate(L-I_rocket)  # Distance from moment of inertia
   # ---- Angular --------------------------------------------------
   tau_x = m.Intermediate(Thrustx_i*d)  # x Torque
@@ -102,9 +104,9 @@ def getModel():
 
   # Acceleration
   # abs/v = the direction of the velocity
-  m.Equation(m.vz.dt() == -g + (Thrustz-(m.abs(m.vz)/m.vz)*Dragz)/mass)  # Replace Thrustz_i with Thrustz (currently broke)
-  m.Equation(m.vy.dt() == 0 + (Thrusty-(m.abs(m.vy)/m.vy)*Dragy)/mass)
-  m.Equation(m.vx.dt() == 0 + (Thrustx-(m.abs(m.vx)/m.vx)*Dragx)/mass)
+  m.Equation(m.vz.dt() == -g + (Thrustz-(m.abs(m.vz)/m.vz)*Dragz)/(m.propMass+drymass))  # Replace Thrustz_i with Thrustz (currently broke)
+  m.Equation(m.vy.dt() == 0 + (Thrusty-(m.abs(m.vy)/m.vy)*Dragy)/(m.propMass+drymass))
+  m.Equation(m.vx.dt() == 0 + (Thrustx-(m.abs(m.vx)/m.vx)*Dragx)/(m.propMass+drymass))
 
   return m
 

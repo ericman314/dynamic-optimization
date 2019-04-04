@@ -39,6 +39,16 @@ def getModel():
   m.Gimbalx = m.Param(value=0)  # Angle from linear Thrust in x direction
   m.Gimbaly = m.Param(value=0)  # Angle from linear thrust in y direction
 
+  # Position
+  m.x = m.Var(value=0)
+  m.y = m.Var(value=0)
+  m.z = m.Var(value=0)
+
+  # Velocity
+  m.vx = m.Var(value=0)
+  m.vy = m.Var(value=0)
+  m.vz = m.Var(value=0)
+
   # Prop consumption (each engine consumes 300kg/s of propellent at 100% throttle)
   m.Equation(m.propMass.dt() == -300 * m.Thrust) 
 
@@ -49,7 +59,7 @@ def getModel():
   # ---- Control --------------------------------------------------
 
   # ---- Drag -----------------------------------------------------
-  ρ = m.Const(value=1.225)  # Density of Air
+  ρ = m.Intermediate( 1.2205611857638659 * m.exp(-0.00009107790874911096 * m.z + -1.8783521651107734e-9 * m.z**2 ))  # Density of Air
   # These are cross sections, they should be Var in the future
   Ax = m.Const(value=4)
   Ay = m.Const(value=4)
@@ -82,15 +92,7 @@ def getModel():
   Thrusty = m.Intermediate(Thrustz_i*m.sin(m.θ_y)+Thrusty_i*m.sin(m.θ_y))
 
   # ---- Main Newtonian Movement ----------------------------------
-  # Position
-  m.x = m.Var(value=0)
-  m.y = m.Var(value=0)
-  m.z = m.Var(value=0)
-
-  # Velocity
-  m.vx = m.Var(value=0)
-  m.vy = m.Var(value=0)
-  m.vz = m.Var(value=0)
+  
 
   # Equation - Newtonian
   m.Equation(m.z.dt() == m.vz)

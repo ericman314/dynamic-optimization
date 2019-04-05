@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '40km-5%prop-750mpsdown_none'
+simFilename = '500km-drop_gimbal-rotate'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -44,7 +44,7 @@ m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for thi
 m.time = simTime
 
 # Set MVs
-m.Thrust.value = simThrottle
+m.Throttle.value = simThrottle
 #m.EngineOn.value = simEngineOn
 m.Gimbalx.value = simGimbalX
 m.Gimbaly.value = simGimbalY
@@ -61,10 +61,10 @@ plt.legend()
 plt.ylabel('Altitude '+r'$(m)$')
 
 plt.subplot2grid((15,2),(0,1), rowspan=5)
-plt.plot(m.time, m.w_x.value, label=r'$\omega_x$')
-plt.plot(m.time, m.w_y.value, label=r'$\omega_y$')
+plt.plot(m.time, np.array(m.w_x.value)*180/np.pi, label=r'$\omega_x$')
+plt.plot(m.time, np.array(m.w_y.value)*180/np.pi, label=r'$\omega_y$')
 plt.legend(loc='best')
-plt.ylabel('Rotational velocity '+ r'$(\frac{rotations}{sec})$')
+plt.ylabel('Rotational velocity '+ r'$(\frac{deg}{sec})$')
 
 plt.subplot2grid((15,2),(3,0), rowspan=3)
 plt.plot(m.time, m.vz.value, ':', color='darkorange', label='Model')
@@ -73,12 +73,12 @@ plt.legend()
 plt.ylabel('Fall velocity '+r'$(\frac{m}{s})$')
 
 plt.subplot2grid((15,2),(5,1), rowspan=5)
-plt.plot(m.time, m.θ_x.value, 'r:', label=r'$θ_x$ Model')
-plt.plot(m.time, m.θ_y.value, 'b:', label=r'$θ_y$ Model')
+plt.plot(m.time, np.array(m.θ_x.value)*180/np.pi, 'r:', label=r'$θ_x$ Model')
+plt.plot(m.time, np.array(m.θ_y.value)*180/np.pi, 'b:', label=r'$θ_y$ Model')
 plt.plot(m.time, simYaw, 'r-', label=r'$θ_x$ Sim')
 plt.plot(m.time, simPitch, 'b-', label=r'$θ_y$ Sim')
 plt.legend(loc='best')
-plt.ylabel('Angle '+r'$(rad)$')
+plt.ylabel('Angle '+r'$(deg)$')
 
 plt.subplot2grid((15,2),(6,0), rowspan=3)
 plt.plot(m.time, m.vx.value, 'r:', label=r'$v_x$ Model')
@@ -100,7 +100,7 @@ plt.subplot2grid((15,2),(10,1), rowspan=5)
 plt.plot(m.time, m.Gimbalx.value, 'r--', label=r'$Gimbal_X$')
 plt.plot(m.time, m.Gimbaly.value, 'b--', label=r'$Gimbal_Y$')
 plt.legend(loc='best')
-plt.ylabel('Gimbal '+r'$(rad)$')
+plt.ylabel('Gimbal '+r'$(deg)$')
 plt.xlabel('Time')
 
 plt.subplot2grid((15,2),(12,0), rowspan=3)

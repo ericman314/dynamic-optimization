@@ -23,15 +23,18 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-#initFilename = '50m-drop'
-initFilename = '40km-5%prop-750mpsdown'
+initFilename = '500km-drop'
+# initFilename = '40km-5%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'none'
+stepFilename = 'gimbal-rotate'
+
+endTime = 50    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
 shouldRunStepTests = True
+
 
 # Miscellaneous configs for Panda3d
 ConfigVariableDouble('default-far').setValue(20000000)
@@ -245,7 +248,7 @@ class MyApp(ShowBase):
     self.pltSaveInterval = 1    # seconds
     self.nextPltSaveTime = 0
 
-    self.endTime = 0    # 0 = five seconds after landing
+    self.endTime = endTime    # 0 = five seconds after landing
 
     self.hasLandedOrCrashed = False
 
@@ -531,7 +534,7 @@ class MyApp(ShowBase):
       self.pltXdot =       np.append(self.pltXdot,       [f9Vel.x])
       self.pltYdot =       np.append(self.pltYdot,       [f9Vel.y])
       self.pltZdot =       np.append(self.pltZdot,       [f9Vel.z])
-      self.pltProp =       np.append(self.pltProp,       [self.f9PropMass])
+      self.pltProp =       np.append(self.pltProp,       [self.propLoad])
       self.pltThrottle =   np.append(self.pltThrottle,   [self.throttle])
       self.pltGimbalX =    np.append(self.pltGimbalX,    [self.gimbalX])
       self.pltGimbalY =    np.append(self.pltGimbalY,    [self.gimbalY])
@@ -553,7 +556,7 @@ class MyApp(ShowBase):
 
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(150, 0, 80))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(0, 150, 80))
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again

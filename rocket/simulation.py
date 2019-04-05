@@ -23,18 +23,22 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-initFilename = '500km-drop'
-# initFilename = '40km-5%prop-750mpsdown'
+# initFilename = '500km-drop'
+initFilename = '40km-5%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'engineOn'
+stepFilename = 'gridX-5'
 
-endTime = 50    # Set to 0 to run until hitting the ground
+endTime = 60    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
 shouldRunStepTests = True
 
+# Disable individual forces (set to 0 to disable)
+dragFactor = 0
+liftFactor = 0
+gridFactor = 1
 
 # Miscellaneous configs for Panda3d
 ConfigVariableDouble('default-far').setValue(20000000)
@@ -351,14 +355,14 @@ class MyApp(ShowBase):
 
     dragForceMag = dynPress * Cd * dragArea
         
-    fvDragWorld = norm(vRelAir) * dragForceMag 
+    fvDragWorld = norm(vRelAir) * dragForceMag * dragFactor
     fpDragWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
 
     # Calculate lift
     vLiftDirection = norm(vRelAir - vRelAir.project(f9ZWorld))
     if AOA > 0.5*math.pi:
       vLiftDirection = -vLiftDirection
-    fvLiftWorld = vLiftDirection * (math.sin(AOA*2) * 174.3 * dynPress)
+    fvLiftWorld = vLiftDirection * (math.sin(AOA*2) * 174.3 * dynPress) * liftFactor
     fpLiftWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
 
     # Calculate lift for each of the grid fins
@@ -398,10 +402,10 @@ class MyApp(ShowBase):
     if gridYposAOA > 0.5*math.pi: vLiftDirectionGridYpos = -vLiftDirectionGridYpos
     if gridYnegAOA > 0.5*math.pi: vLiftDirectionGridYneg = -vLiftDirectionGridYneg
 
-    fvGridXposWorld = vLiftDirectionGridXpos * (math.sin(gridXposAOA*2) * 10 * dynPress)
-    fvGridXnegWorld = vLiftDirectionGridXneg * (math.sin(gridXnegAOA*2) * 10 * dynPress)
-    fvGridYposWorld = vLiftDirectionGridYpos * (math.sin(gridYposAOA*2) * 10 * dynPress)
-    fvGridYnegWorld = vLiftDirectionGridYneg * (math.sin(gridYnegAOA*2) * 10 * dynPress)
+    fvGridXposWorld = vLiftDirectionGridXpos * (math.sin(gridXposAOA*2) * 10 * dynPress) * gridFactor
+    fvGridXnegWorld = vLiftDirectionGridXneg * (math.sin(gridXnegAOA*2) * 10 * dynPress) * gridFactor
+    fvGridYposWorld = vLiftDirectionGridYpos * (math.sin(gridYposAOA*2) * 10 * dynPress) * gridFactor
+    fvGridYnegWorld = vLiftDirectionGridYneg * (math.sin(gridYnegAOA*2) * 10 * dynPress) * gridFactor
 
     if not self.engineOn:
       self.throttle = 0

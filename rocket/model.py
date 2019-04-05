@@ -32,8 +32,12 @@ def getModel():
   g = m.Const(value=9.8)
   drymass = m.Const(value=27200)
 
-  m.Thrust = m.Param(value=0)
+  m.Throttle = m.Param(value=0)
   m.propMass = m.Var(value=1000)
+
+  m.f9ThrustSL = m.Const(7607000 / 9)     # N, per engine
+  m.f9ThrustVac = m.Const(8227000 / 9)    # N, per engine
+    
 
   Pi = m.Const(value=np.pi)
   m.Gimbalx = m.Param(value=0)  # Angle from linear Thrust in x direction
@@ -49,17 +53,22 @@ def getModel():
   m.vy = m.Var(value=0)
   m.vz = m.Var(value=0)
 
+  # Atmospheric density and pressure
+  ρ = m.Intermediate( 1.2205611857638659 * m.exp(-0.00009107790874911096 * m.z + -1.8783521651107734e-9 * m.z**2 ))  # Density of Air
+  press = m.Intermediate( 101325 * m.exp(-0.00011890154532889426 * m.z + -1.4298587512183478e-9 * m.z**2 )) # Pressure of air
+
   # Prop consumption (each engine consumes 300kg/s of propellent at 100% throttle)
-  m.Equation(m.propMass.dt() == -300 * m.Thrust) 
+  m.Equation(m.propMass.dt() == -300 * m.Throttle) 
+  m.Thrust = m.Intermediate(m.Throttle * (m.f9ThrustSL * press / 101325 + m.f9ThrustVac * (1 - press / 101325)))
 
   # Thrust with respect to coordinate fixed to rocket.
-  Thrustx_i = m.Intermediate(m.Thrust*m.sin(m.Gimbalx))
-  Thrusty_i = m.Intermediate(m.Thrust*m.sin(m.Gimbaly))
-  Thrustz_i = m.Intermediate(m.Thrust*(m.cos(m.Gimbalx)+m.cos(m.Gimbaly))/2.0)
+  Thrustx_i = m.Intermediate(m.Thrust*m.sin(-m.Gimbalx*np.pi/180))
+  Thrusty_i = m.Intermediate(m.Thrust*m.sin(m.Gimbaly*np.pi/180))
+  Thrustz_i = m.Intermediate(m.Thrust*(1 - m.sin(-m.Gimbalx*np.pi/180)**2 - m.sin(m.Gimbaly*np.pi/180)**2))
+
   # ---- Control --------------------------------------------------
 
   # ---- Drag -----------------------------------------------------
-  ρ = m.Intermediate( 1.2205611857638659 * m.exp(-0.00009107790874911096 * m.z + -1.8783521651107734e-9 * m.z**2 ))  # Density of Air
   # These are cross sections, they should be Var in the future
   Ax = m.Const(value=4)
   Ay = m.Const(value=4)
@@ -68,11 +77,12 @@ def getModel():
 
   # ---- Drag -----------------------------------------------------
   L = m.Const(value=8.0)  # Length of Rocket
-  I_rocket = m.Intermediate((1.0/12.0)*(m.propMass+drymass)*L**2)  # Moment of inertia
-  d = m.Intermediate(L-I_rocket)  # Distance from moment of inertia
+  Ifactorempirical = m.Param(value=251.0)
+  # I_rocket = m.Intermediate((1.0/12.0)*(m.propMass+drymass)*L**2)  # Moment of inertia
+  I_rocket = m.Intermediate( Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
   # ---- Angular --------------------------------------------------
-  tau_x = m.Intermediate(Thrustx_i*d)  # x Torque
-  tau_y = m.Intermediate(Thrusty_i*d)  # y Torque
+  tau_x = m.Intermediate(Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
+  tau_y = m.Intermediate(Thrusty_i * 15.5)  # y Torque
 
   m.θ_x = m.Var(value=0)  # x angle
   m.θ_y = m.Var(value=0)  # y angle
@@ -87,9 +97,39 @@ def getModel():
   # ---- Thrust Transformation -----------------------------------
   θ_x_2 = m.Intermediate(m.abs(m.abs(m.θ_x) - (Pi/2)))  # Complementary Angle
   θ_y_2 = m.Intermediate(m.abs(m.abs(m.θ_y) - (Pi/2)))  # Complementary Angle
-  Thrustz = m.Intermediate((Thrustz_i*m.cos(m.θ_x)+Thrustz_i*m.cos(m.θ_y))/2.0-Thrustx_i*m.sin(m.θ_x)-Thrusty_i*m.sin(m.θ_y))
-  Thrustx = m.Intermediate(Thrustz_i*m.sin(m.θ_x)+Thrustx_i*m.sin(m.θ_x))
-  Thrusty = m.Intermediate(Thrustz_i*m.sin(m.θ_y)+Thrusty_i*m.sin(m.θ_y))
+
+  # With theta_x, we are exchanging x and z.
+  # With theta_y, we are exchanging y and z
+
+  # Rotation matrix for rotations on the y-axis (theta_x):
+  #
+  # | cos(x)  0   -sin(x) |
+  # |   0     1      0    |
+  # | sin(x)  0    cos(x) |
+  #
+  # Rotation matrix for rotations on the x-axis (theta_y):
+  #
+  # |   1    0       0    |
+  # |   0  cos(y) -sin(y) |
+  # |   0  sin(y)  cos(y) |
+
+  # We'll rotate x, then y. So we need to compute mat_y * mat_x
+  # |   1    0       0    |
+  # |   0  cos(y) -sin(y) |
+  # |   0  sin(y)  cos(y) |
+
+  # |   1    0       0    |   | cos(x)  0   -sin(x) |   |  cos(x)         0      -sin(x)        |
+  # |   0  cos(y) -sin(y) | * |   0     1      0    | = | -sin(x)*sin(y)  cos(y) -cos(x)*sin(y) |
+  # |   0  sin(y)  cos(y) |   | sin(x)  0    cos(x) |   |  sin(x)*cos(y)  sin(y)  cos(x)*cos(y) |
+  
+
+  # TODO: Is it faster to make cos(theta_x), etc., intermediates?
+
+  # Oops I got theta_x and theta_y backwards. Or maybe I multiplied them in the wrong order.
+
+  Thrustx = m.Intermediate(Thrustx_i * m.cos(-m.θ_x) - Thrustz_i * m.sin(-m.θ_x))
+  Thrusty = m.Intermediate(Thrustx_i * -m.sin(-m.θ_x) * m.sin(-m.θ_y) + Thrusty_i * m.cos(-m.θ_y) - Thrustz_i * -m.cos(-m.θ_x) * m.sin(-m.θ_y))
+  Thrustz = m.Intermediate(Thrustx_i * m.sin(-m.θ_x) * m.cos(-m.θ_y) + Thrusty_i * m.sin(-m.θ_y) + Thrustz_i * m.cos(-m.θ_x) * m.cos(-m.θ_y))
 
   # ---- Main Newtonian Movement ----------------------------------
   

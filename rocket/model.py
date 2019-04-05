@@ -133,14 +133,14 @@ def getModel():
   m.Equation(m.x.dt() == m.vx)
 
   #  Drag
-  Est_x = m.Const(value=22) # Estimated z multiplier
+  Est_x = m.Const(value=1.0) # Estimated z multiplier
   Dragx = m.Intermediate(Est_x*Cd*ρ*(m.vx**2)*Ax/2.0)
   Dragy = m.Intermediate(Cd*ρ*(m.vy**2)*Ay/2.0)
   Est_z = m.Const(value=161) # Estimated z multiplier
   Dragz = m.Intermediate(Est_z*Cd*ρ*(m.vz**2)*Az/2.0)
 
   # More Angular
-  tau_x = m.Intermediate(Dragx*8.0 + Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
+  tau_x = m.Intermediate(-m.abs(m.vx)/m.vx*Dragx*8.0 + Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
   tau_y = m.Intermediate((Dragy + Thrusty_i) * 15.5)  # y Torque
   m.Equation(m.w_x.dt()*I_rocket == tau_x)
   m.Equation(m.w_y.dt()*I_rocket == tau_y)

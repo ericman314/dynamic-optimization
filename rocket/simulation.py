@@ -27,7 +27,7 @@ initFilename = '500km-drop'
 # initFilename = '40km-5%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gimbal-rotate'
+stepFilename = 'engineOn'
 
 endTime = 50    # Set to 0 to run until hitting the ground
 

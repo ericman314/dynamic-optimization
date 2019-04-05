@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '500km-drop_gimbal-rotate'
+simFilename = '500km-drop_engineOn'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -25,6 +25,8 @@ simGimbalX = sim[:,12]
 simGimbalY = sim[:,13]
 simGridX = sim[:,14]
 simGridY = sim[:,15]
+simEngineOn = np.array([ 1 if x > 0 else 0 for x in simThrottle ])
+
 
 # Create the model
 m = getModel()
@@ -45,7 +47,7 @@ m.time = simTime
 
 # Set MVs
 m.Throttle.value = simThrottle
-#m.EngineOn.value = simEngineOn
+m.EngineOn.value = simEngineOn
 m.Gimbalx.value = simGimbalX
 m.Gimbaly.value = simGimbalY
 #m.Gridx.value = simGridX

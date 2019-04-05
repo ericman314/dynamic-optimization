@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '500km-drop_engineOn'
+simFilename = '40km-5%prop-750mpsdown_gimbalX-low'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -113,5 +113,6 @@ plt.xlabel('Time')
 plt.tight_layout()
 plt.subplots_adjust(top=0.95,wspace=0.3)
 
-plt.savefig(os.path.join('plots', simFilename + ' step test.png'))
+plt.savefig(os.path.join('plots', simFilename + 'step test.png'))
+print('Final Positions - Simulator:', simZ[-1], m.x.value[-1])
 plt.show()

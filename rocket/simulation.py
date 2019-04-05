@@ -23,13 +23,13 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-initFilename = '500km-drop'
+initFilename = '20km-10%prop-300mpsdown'
 # initFilename = '40km-5%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'engineOn'
+stepFilename = 'gimbalX-low'
 
-endTime = 50    # Set to 0 to run until hitting the ground
+endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
@@ -358,7 +358,7 @@ class MyApp(ShowBase):
     vLiftDirection = norm(vRelAir - vRelAir.project(f9ZWorld))
     if AOA > 0.5*math.pi:
       vLiftDirection = -vLiftDirection
-    fvLiftWorld = vLiftDirection * (math.sin(AOA*2) * 174.3 * dynPress)
+    fvLiftWorld = vLiftDirection * (math.sin(AOA*2) * 174.3 * dynPress)*0
     fpLiftWorld = quat.xform(Point3(0,0,-self.f9COMoffset))   # Center of vehicle
 
     # Calculate lift for each of the grid fins
@@ -398,10 +398,10 @@ class MyApp(ShowBase):
     if gridYposAOA > 0.5*math.pi: vLiftDirectionGridYpos = -vLiftDirectionGridYpos
     if gridYnegAOA > 0.5*math.pi: vLiftDirectionGridYneg = -vLiftDirectionGridYneg
 
-    fvGridXposWorld = vLiftDirectionGridXpos * (math.sin(gridXposAOA*2) * 10 * dynPress)
-    fvGridXnegWorld = vLiftDirectionGridXneg * (math.sin(gridXnegAOA*2) * 10 * dynPress)
-    fvGridYposWorld = vLiftDirectionGridYpos * (math.sin(gridYposAOA*2) * 10 * dynPress)
-    fvGridYnegWorld = vLiftDirectionGridYneg * (math.sin(gridYnegAOA*2) * 10 * dynPress)
+    fvGridXposWorld = vLiftDirectionGridXpos * (math.sin(gridXposAOA*2) * 10 * dynPress)*0
+    fvGridXnegWorld = vLiftDirectionGridXneg * (math.sin(gridXnegAOA*2) * 10 * dynPress)*0
+    fvGridYposWorld = vLiftDirectionGridYpos * (math.sin(gridYposAOA*2) * 10 * dynPress)*0
+    fvGridYnegWorld = vLiftDirectionGridYneg * (math.sin(gridYnegAOA*2) * 10 * dynPress)*0
 
     if not self.engineOn:
       self.throttle = 0

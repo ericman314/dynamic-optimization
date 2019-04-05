@@ -81,17 +81,10 @@ def getModel():
   Ifactorempirical = m.Param(value=251.0)
   I_rocket = m.Intermediate( Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
   # ---- Angular --------------------------------------------------
-  tau_x = m.Intermediate(Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
-  tau_y = m.Intermediate(Thrusty_i * 15.5)  # y Torque
-
   m.θ_x = m.Var(value=0)  # x angle
   m.θ_y = m.Var(value=0)  # y angle
   m.w_x = m.Var(value=0)  # Rotational velocity, x direction (Initial conditions for angular velocity not supported yet)
   m.w_y = m.Var(value=0)
-  m.Equation(m.w_x.dt()*I_rocket == tau_x)
-  m.Equation(m.w_y.dt()*I_rocket == tau_y)
-  m.Equation(m.θ_x.dt() == m.w_x)
-  m.Equation(m.θ_y.dt() == m.w_y)
 
 
   # ---- Thrust Transformation -----------------------------------
@@ -139,10 +132,21 @@ def getModel():
   m.Equation(m.y.dt() == m.vy)
   m.Equation(m.x.dt() == m.vx)
 
-  # Drag
-  Dragx = m.Intermediate(Cd*ρ*(m.vx**2)*Ax/2.0)
+  #  Drag
+  Est_x = m.Const(value=22) # Estimated z multiplier
+  Dragx = m.Intermediate(Est_x*Cd*ρ*(m.vx**2)*Ax/2.0)
   Dragy = m.Intermediate(Cd*ρ*(m.vy**2)*Ay/2.0)
-  Dragz = m.Intermediate(Cd*ρ*(m.vz**2)*Az/2.0)
+  Est_z = m.Const(value=161) # Estimated z multiplier
+  Dragz = m.Intermediate(Est_z*Cd*ρ*(m.vz**2)*Az/2.0)
+
+  # More Angular
+  tau_x = m.Intermediate(Dragx*8.0 + Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
+  tau_y = m.Intermediate((Dragy + Thrusty_i) * 15.5)  # y Torque
+  m.Equation(m.w_x.dt()*I_rocket == tau_x)
+  m.Equation(m.w_y.dt()*I_rocket == tau_y)
+  m.Equation(m.θ_x.dt() == m.w_x)
+  m.Equation(m.θ_y.dt() == m.w_y)
+
 
   # Acceleration
   # abs/v = the direction of the velocity

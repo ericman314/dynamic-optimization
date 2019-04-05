@@ -32,7 +32,8 @@ def getModel():
   g = m.Const(value=9.8)
   drymass = m.Const(value=27200)
 
-  m.Throttle = m.Param(value=0)
+  m.Throttle = m.MV(value=1.0, lb=0.57, ub=1.0)
+  m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
   m.propMass = m.Var(value=1000)
 
   m.f9ThrustSL = m.Const(7607000 / 9)     # N, per engine
@@ -58,8 +59,8 @@ def getModel():
   press = m.Intermediate( 101325 * m.exp(-0.00011890154532889426 * m.z + -1.4298587512183478e-9 * m.z**2 )) # Pressure of air
 
   # Prop consumption (each engine consumes 300kg/s of propellent at 100% throttle)
-  m.Equation(m.propMass.dt() == -300 * m.Throttle) 
-  m.Thrust = m.Intermediate(m.Throttle * (m.f9ThrustSL * press / 101325 + m.f9ThrustVac * (1 - press / 101325)))
+  m.Equation(m.propMass.dt() == -300 * m.Throttle * m.EngineOn) 
+  m.Thrust = m.Intermediate(m.Throttle * m.EngineOn * (m.f9ThrustSL * press / 101325 + m.f9ThrustVac * (1 - press / 101325)))
 
   # Thrust with respect to coordinate fixed to rocket.
   Thrustx_i = m.Intermediate(m.Thrust*m.sin(-m.Gimbalx*np.pi/180))
@@ -78,7 +79,6 @@ def getModel():
   # ---- Drag -----------------------------------------------------
   L = m.Const(value=8.0)  # Length of Rocket
   Ifactorempirical = m.Param(value=251.0)
-  # I_rocket = m.Intermediate((1.0/12.0)*(m.propMass+drymass)*L**2)  # Moment of inertia
   I_rocket = m.Intermediate( Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
   # ---- Angular --------------------------------------------------
   tau_x = m.Intermediate(Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)

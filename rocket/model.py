@@ -179,6 +179,31 @@ def getModel():
   tauDragx = m.Intermediate( 8 * (Dragx * f9ZWorldz - Dragz * f9ZWorldx) )
   tauDragy = m.Intermediate( 8 * (Dragy * f9ZWorldz - Dragz * f9ZWorldy) )
 
+  # ---- Lift ------------------------------------------------
+
+  # The lift direction is the rejection of vRelAir from f9ZWorld:
+  # liftDir = vRelAir - (vRelAir DOT f9ZWorld) / f9ZWorld2 * f9ZWorld
+
+  # If this works, there might be a simpler way to project vRelAir onto f9ZWorld since f9ZWorld is a unit vector.
+
+  dotLift = m.Intermediate(m.vx * f9ZWorldx + m.vy * f9ZWorldy + m.vz * f9ZWorldz)
+  liftDirx = m.Intermediate(m.vx - dotLift * f9ZWorldx)
+  liftDiry = m.Intermediate(m.vy - dotLift * f9ZWorldy)
+  liftDirz = m.Intermediate(m.vz - dotLift * f9ZWorldz)
+  liftDirMag = m.Intermediate( m.sqrt(liftDirx**2 + liftDiry**2 + liftDirz**2) )
+  liftDirNormx = m.Intermediate(liftDirx / liftDirMag)
+  liftDirNormy = m.Intermediate(liftDiry / liftDirMag)
+  liftDirNormz = m.Intermediate(liftDirz / liftDirMag)
+
+  liftForce = m.Intermediate(m.sin(m.AOA*2) * 174.3 * 0.5 * ρ * vRelAir2)
+
+  Liftx = m.Intermediate(liftDirNormx * liftForce)
+  Lifty = m.Intermediate(liftDirNormy * liftForce)
+  Liftz = m.Intermediate(liftDirNormz * liftForce)
+
+
+  tauLiftx = m.Intermediate( 8 * (Liftx * f9ZWorldz - Liftz * f9ZWorldx) )
+  tauLifty = m.Intermediate( 8 * (Lifty * f9ZWorldz - Liftz * f9ZWorldy) )
 
   # #  = math.acos(dot(norm(vRelAir), norm(-f9ZWorld))
   # dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
@@ -203,12 +228,12 @@ def getModel():
 
   # Acceleration
   # abs/v = the direction of the velocity
-  m.Equation(m.vz.dt() == -g + (Thrustz-(m.abs(m.vz)/m.vz)*Dragz)/(m.propMass+drymass))  # Replace Thrustz_i with Thrustz (currently broke)
-  m.Equation(m.vy.dt() == 0 + (Thrusty-(m.abs(m.vy)/m.vy)*Dragy)/(m.propMass+drymass))
-  m.Equation(m.vx.dt() == 0 + (Thrustx-(m.abs(m.vx)/m.vx)*Dragx)/(m.propMass+drymass))
+  m.Equation(m.vz.dt() == -g + (Thrustz-(m.abs(m.vz)/m.vz)*Dragz + Liftz)/(m.propMass+drymass))  # Replace Thrustz_i with Thrustz (currently broke)
+  m.Equation(m.vy.dt() == 0 + (Thrusty-(m.abs(m.vy)/m.vy)*Dragy + Lifty)/(m.propMass+drymass))
+  m.Equation(m.vx.dt() == 0 + (Thrustx-(m.abs(m.vx)/m.vx)*Dragx + Liftx)/(m.propMass+drymass))
 
-  m.Equation(m.w_x.dt()*I_rocket == tau_x + tauDragx)
-  m.Equation(m.w_y.dt()*I_rocket == tau_y + tauDragy)
+  m.Equation(m.w_x.dt()*I_rocket == tau_x + tauDragx + tauLiftx)
+  m.Equation(m.w_y.dt()*I_rocket == tau_y + tauDragy + tauLifty)
   m.Equation(m.θ_x.dt() == m.w_x)
   m.Equation(m.θ_y.dt() == m.w_y)
 

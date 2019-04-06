@@ -24,12 +24,12 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-drop'
-initFilename = '20km-10%prop-rotated-lateral-drop'
+initFilename = '20km-10%prop-rotated-drop'
 
 # Filename to read step tests from (don't include the .csv)
 stepFilename = 'none'
 
-endTime = 0    # Set to 0 to run until hitting the ground
+endTime = 30    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
@@ -37,7 +37,7 @@ shouldRunStepTests = True
 
 # Disable individual forces (set to 0 to disable)
 dragFactor = 1
-liftFactor = 0
+liftFactor = 1
 gridFactor = 0
 
 # Miscellaneous configs for Panda3d

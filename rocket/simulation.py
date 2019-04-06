@@ -24,21 +24,21 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-drop'
-initFilename = '40km-5%prop-750mpsdown'
+initFilename = '20km-10%prop-rotated-lateral-drop'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gridX-5'
+stepFilename = 'none'
 
-endTime = 60    # Set to 0 to run until hitting the ground
+endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
 shouldRunStepTests = True
 
 # Disable individual forces (set to 0 to disable)
-dragFactor = 0
+dragFactor = 1
 liftFactor = 0
-gridFactor = 1
+gridFactor = 0
 
 # Miscellaneous configs for Panda3d
 ConfigVariableDouble('default-far').setValue(20000000)

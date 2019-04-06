@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '500km-drop_engineOn'
+simFilename = '20km-10%prop-rotated-lateral-drop_none'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -25,11 +25,14 @@ simGimbalX = sim[:,12]
 simGimbalY = sim[:,13]
 simGridX = sim[:,14]
 simGridY = sim[:,15]
+simAOA = sim[:,18]
 simEngineOn = np.array([ 1 if x > 0 else 0 for x in simThrottle ])
 
 
 # Create the model
 m = getModel()
+
+m.options.COLDSTART = 2
 
 # Set initial conditions
 m.x.value = simX[0]
@@ -38,8 +41,8 @@ m.z.value = simZ[0]
 m.vx.value = simXdot[0]
 m.vy.value = simYdot[0]
 m.vz.value = simZdot[0]
-m.θ_x.value = simYaw[0]  # x angle
-m.θ_y.value = simPitch[0]  # y angle
+m.θ_x.value = simYaw[0] * np.pi / 180  # x angle
+m.θ_y.value = simPitch[0] * np.pi / 180 # y angle
 m.propMass.value = simProp[0]  
   
 m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
@@ -54,6 +57,7 @@ m.Gimbaly.value = simGimbalY
 #m.Gridy.value = simGridY
 
 m.solve(Remote=False)
+
 
 plt.figure(num=2, figsize=(10,8))
 plt.subplot2grid((15,2),(0,0), rowspan=3)
@@ -114,4 +118,11 @@ plt.tight_layout()
 plt.subplots_adjust(top=0.95,wspace=0.3)
 
 plt.savefig(os.path.join('plots', simFilename + ' step test.png'))
+plt.show()
+
+plt.clf()
+
+plt.plot(m.time, np.array(m.AOA.value)*180/np.pi, 'r:', label='AOA Model')
+plt.plot(m.time, simAOA, 'r-', label='AOA Sim')
+plt.legend()
 plt.show()

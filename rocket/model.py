@@ -88,11 +88,7 @@ def getModel():
   m.θ_y = m.Var(value=0)  # y angle
   m.w_x = m.Var(value=0)  # Rotational velocity, x direction (Initial conditions for angular velocity not supported yet)
   m.w_y = m.Var(value=0)
-  m.Equation(m.w_x.dt()*I_rocket == tau_x)
-  m.Equation(m.w_y.dt()*I_rocket == tau_y)
-  m.Equation(m.θ_x.dt() == m.w_x)
-  m.Equation(m.θ_y.dt() == m.w_y)
-
+ 
 
   # ---- Thrust Transformation -----------------------------------
   θ_x_2 = m.Intermediate(m.abs(m.abs(m.θ_x) - (Pi/2)))  # Complementary Angle
@@ -139,16 +135,82 @@ def getModel():
   m.Equation(m.y.dt() == m.vy)
   m.Equation(m.x.dt() == m.vx)
 
+  Thrustx = m.Intermediate(-m.sin(-m.θ_x))
+  Thrusty = m.Intermediate(m.cos(-m.θ_x) * m.sin(-m.θ_y))
+  Thrustz = m.Intermediate(m.cos(-m.θ_x) * m.cos(-m.θ_y))
+
+
   # Drag
-  Dragx = m.Intermediate(Cd*ρ*(m.vx**2)*Ax/2.0)
-  Dragy = m.Intermediate(Cd*ρ*(m.vy**2)*Ay/2.0)
-  Dragz = m.Intermediate(Cd*ρ*(m.vz**2)*Az/2.0)
+  # The rocket's velocity is [m.vx, m.vy, m.vz].
+  # The drag force is then in the direction of [-m.vx, -m.vy, -m.vz].
+  # The drag force has magnitude dynPress * Cd * dragArea
+  # Which is 0.5 * rho * u**2 * 1.5 * (10.8 + (174.3-10.8) * math.sin(AOA))
+  # where AOA is the angle between [m.vz, m.vy, m.vz] and  [sin(thetaX), cos(thetaX)*sin(thetaY), cos(thetaX)*cos(thetaY)]
+  # 
+  f9ZWorldx = m.Intermediate(m.sin(m.θ_x))
+  f9ZWorldy = m.Intermediate(m.cos(m.θ_x)*m.sin(m.θ_y))
+  f9ZWorldz = m.Intermediate(m.cos(m.θ_x)*m.cos(m.θ_y))
+
+  # f9ZWorld is a unit vector: sin2(x) + cos2(x)*sin2(y) + cos2(x)*cos2(y) = sin2(x) + cos2(x) * (sin2(y) + cos2(y)) = sin2(x) + cos2(x) * 1 = 1
+
+  vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)
+  vRelAirMag = m.Intermediate( m.sqrt(vRelAir2) )
+
+  vRelAirNormx = m.Intermediate(m.vx / vRelAirMag)
+  vRelAirNormy = m.Intermediate(m.vy / vRelAirMag)
+  vRelAirNormz = m.Intermediate(m.vz / vRelAirMag)
+
+  dot = m.Intermediate(vRelAirNormx * f9ZWorldx + vRelAirNormy * f9ZWorldy + vRelAirNormz * f9ZWorldz)
+
+  m.AOA = m.Intermediate( m.acos(dot) )
+
+  dragArea = m.Intermediate(10.8 + 163.5 * m.sin(m.AOA))
+  dragForce = m.Intermediate(0.5 * ρ * vRelAir2 * 1.5 * dragArea)
+
+  Dragx = m.Intermediate( -dragForce * vRelAirNormx )
+  Dragy = m.Intermediate( -dragForce * vRelAirNormy )
+  Dragz = m.Intermediate( -dragForce * vRelAirNormz )
+
+  # How much torque is applied?
+  # The torque is 8 * cross( [Dragx, Dragy, Dragz], [f9ZWorldx, f9ZWorldy, f9ZWorldz] )
+  # All right, this is where we approximate it.
+  # The torque along the y-axis is 8 * cross( [Dragx, Dragz], [f9Worldx, f9Worldz] ).
+
+  tauDragx = m.Intermediate( 8 * (Dragx * f9ZWorldz - Dragz * f9ZWorldx) )
+  tauDragy = m.Intermediate( 8 * (Dragy * f9ZWorldz - Dragz * f9ZWorldy) )
+
+
+  # #  = math.acos(dot(norm(vRelAir), norm(-f9ZWorld))
+  # dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
+  #   # Get angle of attack (deg)
+  #   AOA = math.acos(min(max(dot(norm(vRelAir), norm(-f9ZWorld)), -1), 1))
+
+  #   # Very simple and probably not correct drag coefficient
+  #   Cd = 1.5
+
+  #   # Very simple and probably not correct area
+  #   dragArea = 10.8 + (174.3-10.8) * math.sin(AOA)
+
+  #   dragForceMag = dynPress * Cd * dragArea
+        
+  # There is also a lift force that
+
+
+  # Drag
+  # Dragx = m.Intermediate(Cd*ρ*(m.vx**2)*Ax/2.0)
+  # Dragy = m.Intermediate(Cd*ρ*(m.vy**2)*Ay/2.0)
+  # Dragz = m.Intermediate(Cd*ρ*(m.vz**2)*Az/2.0)
 
   # Acceleration
   # abs/v = the direction of the velocity
   m.Equation(m.vz.dt() == -g + (Thrustz-(m.abs(m.vz)/m.vz)*Dragz)/(m.propMass+drymass))  # Replace Thrustz_i with Thrustz (currently broke)
   m.Equation(m.vy.dt() == 0 + (Thrusty-(m.abs(m.vy)/m.vy)*Dragy)/(m.propMass+drymass))
   m.Equation(m.vx.dt() == 0 + (Thrustx-(m.abs(m.vx)/m.vx)*Dragx)/(m.propMass+drymass))
+
+  m.Equation(m.w_x.dt()*I_rocket == tau_x + tauDragx)
+  m.Equation(m.w_y.dt()*I_rocket == tau_y + tauDragy)
+  m.Equation(m.θ_x.dt() == m.w_x)
+  m.Equation(m.θ_y.dt() == m.w_y)
 
   return m
 

@@ -24,7 +24,7 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-drop'
-initFilename = '20km-10%prop-rotated-drop'
+initFilename = '20km-10%prop-rotated-lateralX-drop'
 
 # Filename to read step tests from (don't include the .csv)
 stepFilename = 'none'
@@ -38,7 +38,7 @@ shouldRunStepTests = True
 # Disable individual forces (set to 0 to disable)
 dragFactor = 1
 liftFactor = 1
-gridFactor = 0
+gridFactor = 1
 
 # Miscellaneous configs for Panda3d
 ConfigVariableDouble('default-far').setValue(20000000)
@@ -98,7 +98,7 @@ class MyApp(ShowBase):
     self.f9Radius = 1.8542     # Radius of F9 in meters
     self.f9Height = 47         # Height of F9 in meters
     self.f9COMoffset = -8            # Center of mass relative to center of body, in meters
-    self.f9GridFinAuthority = 10      # Some arbitrary number to say how much lift the grid fins produce
+    self.f9GridFinAuthority = 10      # Some arbitrary number to say how much lift the grid fins produce (oh, just realized we never use this anywhere)
 
     # Simulation variables    
     self.propLoad = 0.1 * self.f9PropMass    # Amount of full-tank propellent remaining
@@ -249,7 +249,7 @@ class MyApp(ShowBase):
     self.pltGeeLateral = np.zeros(0)
     self.pltAOA = np.zeros(0)
     
-    self.pltSaveInterval = 1    # seconds
+    self.pltSaveInterval = 0.5    # seconds
     self.nextPltSaveTime = 0
 
     self.endTime = endTime    # 0 = five seconds after landing
@@ -560,7 +560,7 @@ class MyApp(ShowBase):
 
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(0, 150, 80))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(-150, 0, 80))
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again

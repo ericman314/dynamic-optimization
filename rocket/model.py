@@ -124,8 +124,8 @@ def getModel():
   # Oops I got theta_x and theta_y backwards. Or maybe I multiplied them in the wrong order.
 
   Thrustx = m.Intermediate(Thrustx_i * m.cos(-m.θ_x) - Thrustz_i * m.sin(-m.θ_x))
-  Thrusty = m.Intermediate(Thrustx_i * -m.sin(-m.θ_x) * m.sin(-m.θ_y) + Thrusty_i * m.cos(-m.θ_y) - Thrustz_i * -m.cos(-m.θ_x) * m.sin(-m.θ_y))
-  Thrustz = m.Intermediate(Thrustx_i * m.sin(-m.θ_x) * m.cos(-m.θ_y) + Thrusty_i * m.sin(-m.θ_y) + Thrustz_i * m.cos(-m.θ_x) * m.cos(-m.θ_y))
+  Thrusty = m.Intermediate(Thrustx_i * -m.sin(-m.θ_x) * m.sin(m.θ_y) + Thrusty_i * m.cos(m.θ_y) + Thrustz_i * -m.cos(-m.θ_x) * m.sin(m.θ_y))
+  Thrustz = m.Intermediate(Thrustx_i * m.sin(-m.θ_x) * m.cos(m.θ_y) + Thrusty_i * m.sin(m.θ_y) + Thrustz_i * m.cos(-m.θ_x) * m.cos(m.θ_y))
 
   # ---- Main Newtonian Movement ----------------------------------
   
@@ -135,9 +135,9 @@ def getModel():
   m.Equation(m.y.dt() == m.vy)
   m.Equation(m.x.dt() == m.vx)
 
-  Thrustx = m.Intermediate(-m.sin(-m.θ_x))
-  Thrusty = m.Intermediate(m.cos(-m.θ_x) * m.sin(-m.θ_y))
-  Thrustz = m.Intermediate(m.cos(-m.θ_x) * m.cos(-m.θ_y))
+  # Thrustx = m.Intermediate(-m.sin(-m.θ_x))
+  # Thrusty = m.Intermediate(m.cos(-m.θ_x) * m.sin(-m.θ_y))
+  # Thrustz = m.Intermediate(m.cos(-m.θ_x) * m.cos(-m.θ_y))
 
 
   # Drag
@@ -148,8 +148,8 @@ def getModel():
   # where AOA is the angle between [m.vz, m.vy, m.vz] and  [sin(thetaX), cos(thetaX)*sin(thetaY), cos(thetaX)*cos(thetaY)]
   # 
   f9ZWorldx = m.Intermediate(m.sin(m.θ_x))
-  f9ZWorldy = m.Intermediate(m.cos(m.θ_x)*m.sin(m.θ_y))
-  f9ZWorldz = m.Intermediate(m.cos(m.θ_x)*m.cos(m.θ_y))
+  f9ZWorldy = m.Intermediate(m.cos(m.θ_x)*m.sin(-m.θ_y))
+  f9ZWorldz = m.Intermediate(m.cos(m.θ_x)*m.cos(-m.θ_y))
 
   # f9ZWorld is a unit vector: sin2(x) + cos2(x)*sin2(y) + cos2(x)*cos2(y) = sin2(x) + cos2(x) * (sin2(y) + cos2(y)) = sin2(x) + cos2(x) * 1 = 1
 
@@ -201,9 +201,10 @@ def getModel():
   Lifty = m.Intermediate(liftDirNormy * liftForce)
   Liftz = m.Intermediate(liftDirNormz * liftForce)
 
+  gridFinTorqueAdjustment = 1.8
 
-  tauLiftx = m.Intermediate( 8 * (Liftx * f9ZWorldz - Liftz * f9ZWorldx) )
-  tauLifty = m.Intermediate( 8 * (Lifty * f9ZWorldz - Liftz * f9ZWorldy) )
+  tauLiftx = m.Intermediate( 8 * (Liftx * f9ZWorldz - Liftz * f9ZWorldx) * gridFinTorqueAdjustment)
+  tauLifty = m.Intermediate( 8 * (Lifty * f9ZWorldz - Liftz * f9ZWorldy) * gridFinTorqueAdjustment)
 
   # #  = math.acos(dot(norm(vRelAir), norm(-f9ZWorld))
   # dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
@@ -235,7 +236,15 @@ def getModel():
   m.Equation(m.w_x.dt()*I_rocket == tau_x + tauDragx + tauLiftx)
   m.Equation(m.w_y.dt()*I_rocket == tau_y + tauDragy + tauLifty)
   m.Equation(m.θ_x.dt() == m.w_x)
-  m.Equation(m.θ_y.dt() == m.w_y)
+  m.Equation(m.θ_y.dt() == -m.w_y)
+
+  m.f9ZWorldx = f9ZWorldx
+  m.f9ZWorldy = f9ZWorldy
+  m.f9ZWorldz = f9ZWorldz
+
+  m.Liftx = Liftx
+  m.Lifty = Lifty
+  m.Liftz = Liftz
 
   return m
 

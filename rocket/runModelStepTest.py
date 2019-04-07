@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '20km-10%prop-rotated-drop_none'
+simFilename = '20km-10%prop-rotated-lateralX-drop_none'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -35,14 +35,14 @@ m = getModel()
 m.options.COLDSTART = 2
 
 # Set initial conditions
-m.x.value = simX[0]
-m.y.value = simY[0]
-m.z.value = simZ[0]
-m.vx.value = simXdot[0]
-m.vy.value = simYdot[0]
-m.vz.value = simZdot[0]
-m.θ_x.value = simYaw[0] * np.pi / 180  # x angle
-m.θ_y.value = simPitch[0] * np.pi / 180 # y angle
+m.x.value = simX
+m.y.value = simY
+m.z.value = simZ
+m.vx.value = simXdot
+m.vy.value = simYdot
+m.vz.value = simZdot
+m.θ_x.value = simYaw * np.pi / 180  # x angle
+m.θ_y.value = simPitch * np.pi / 180 # y angle
 m.propMass.value = simProp[0]  
   
 m.options.IMODE = 4  # Just simulation for now, but the ultimate plan is for this to control
@@ -58,6 +58,11 @@ m.Gimbaly.value = simGimbalY
 
 m.solve(Remote=False)
 
+print (m.f9ZWorldx.value, m.f9ZWorldy.value, m.f9ZWorldz.value)
+
+print()
+
+print(m.Liftx.value, m.Lifty.value, m.Liftz.value)
 
 plt.figure(num=2, figsize=(10,8))
 plt.subplot2grid((15,2),(0,0), rowspan=3)

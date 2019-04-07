@@ -63,9 +63,9 @@ def getModel():
   m.Thrust = m.Intermediate(m.Throttle * m.EngineOn * (m.f9ThrustSL * press / 101325 + m.f9ThrustVac * (1 - press / 101325)))
 
   # Thrust with respect to coordinate fixed to rocket.
-  Thrustx_i = m.Intermediate(m.Thrust*m.sin(-m.Gimbalx*np.pi/180))
+  Thrustx_i = m.Intermediate(m.Thrust*m.sin(m.Gimbalx*np.pi/180))
   Thrusty_i = m.Intermediate(m.Thrust*m.sin(m.Gimbaly*np.pi/180))
-  Thrustz_i = m.Intermediate(m.Thrust*(1 - m.sin(-m.Gimbalx*np.pi/180)**2 - m.sin(m.Gimbaly*np.pi/180)**2))
+  Thrustz_i = m.Intermediate(m.Thrust*(1 - m.sin(m.Gimbalx*np.pi/180)**2 - m.sin(m.Gimbaly*np.pi/180)**2))
 
   # ---- Control --------------------------------------------------
 
@@ -81,8 +81,8 @@ def getModel():
   Ifactorempirical = m.Param(value=251.0)
   I_rocket = m.Intermediate( Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
   # ---- Angular --------------------------------------------------
-  tau_x = m.Intermediate(Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
-  tau_y = m.Intermediate(Thrusty_i * 15.5)  # y Torque
+  tau_x = m.Intermediate(-Thrustx_i * 15.5)  # x Torque  (15.5 = distance between COM and engines)
+  tau_y = m.Intermediate(-Thrusty_i * 15.5)  # y Torque
 
   m.θ_x = m.Var(value=0)  # x angle
   m.θ_y = m.Var(value=0)  # y angle
@@ -91,8 +91,8 @@ def getModel():
  
 
   # ---- Thrust Transformation -----------------------------------
-  θ_x_2 = m.Intermediate(m.abs(m.abs(m.θ_x) - (Pi/2)))  # Complementary Angle
-  θ_y_2 = m.Intermediate(m.abs(m.abs(m.θ_y) - (Pi/2)))  # Complementary Angle
+  # θ_x_2 = m.Intermediate(m.abs(m.abs(m.θ_x) - (Pi/2)))  # Complementary Angle
+  # θ_y_2 = m.Intermediate(m.abs(m.abs(m.θ_y) - (Pi/2)))  # Complementary Angle
 
   # With theta_x, we are exchanging x and z.
   # With theta_y, we are exchanging y and z
@@ -237,14 +237,6 @@ def getModel():
   m.Equation(m.w_y.dt()*I_rocket == tau_y + tauDragy + tauLifty)
   m.Equation(m.θ_x.dt() == m.w_x)
   m.Equation(m.θ_y.dt() == -m.w_y)
-
-  m.f9ZWorldx = f9ZWorldx
-  m.f9ZWorldy = f9ZWorldy
-  m.f9ZWorldz = f9ZWorldz
-
-  m.Liftx = Liftx
-  m.Lifty = Lifty
-  m.Liftz = Liftz
 
   return m
 

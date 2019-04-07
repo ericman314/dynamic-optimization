@@ -24,12 +24,12 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-drop'
-initFilename = '20km-10%prop-rotated-lateralX-drop'
+initFilename = '40km-10%prop-750mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'none'
+stepFilename = 'gimbal-rotate-high'
 
-endTime = 30    # Set to 0 to run until hitting the ground
+endTime = 15    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
@@ -249,7 +249,7 @@ class MyApp(ShowBase):
     self.pltGeeLateral = np.zeros(0)
     self.pltAOA = np.zeros(0)
     
-    self.pltSaveInterval = 0.5    # seconds
+    self.pltSaveInterval = 1.0    # seconds
     self.nextPltSaveTime = 0
 
     self.endTime = endTime    # 0 = five seconds after landing

@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '40km-10%prop-750mpsdown_gimbal-rotate-high'
+simFilename = '20km-10%prop-500mpsdown_gridRotate'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -53,10 +53,10 @@ m.Throttle.value = simThrottle
 m.EngineOn.value = simEngineOn
 m.Gimbalx.value = simGimbalX
 m.Gimbaly.value = simGimbalY
-#m.Gridx.value = simGridX
-#m.Gridy.value = simGridY
+m.Gridx.value = simGridX
+m.Gridy.value = simGridY
 
-m.solve(Remote=False)
+m.solve()
 
 
 plt.figure(num=2, figsize=(10,8))

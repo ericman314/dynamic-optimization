@@ -23,13 +23,13 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-# initFilename = '500km-drop'
-initFilename = '40km-10%prop-750mpsdown'
+# initFilename = '500km-750mpsdown'
+initFilename = '20km-10%prop-500mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gimbal-rotate-high'
+stepFilename = 'gridRotate'
 
-endTime = 15    # Set to 0 to run until hitting the ground
+endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
@@ -131,7 +131,7 @@ class MyApp(ShowBase):
 
     self.f9BodyNP.node().setMass(self.f9BodyMass + self.propLoad)
     self.f9BodyNP.setPos(initX, initY, initZ)
-    self.f9BodyNP.setHpr(initRoll, initPitch, initYaw)
+    self.f9BodyNP.setHpr(initRoll, -initPitch, initYaw)
     self.f9BodyNP.node().set_linear_velocity(LVector3f(initXdot, initYdot, initZdot))
     
     # Load step tests
@@ -534,7 +534,7 @@ class MyApp(ShowBase):
       self.pltZ =          np.append(self.pltZ,          [f9Pos.z])
       self.pltRoll =       np.append(self.pltRoll,       [f9Roll])
       self.pltYaw =        np.append(self.pltYaw,        [f9Yaw])
-      self.pltPitch =      np.append(self.pltPitch,      [f9Pitch])
+      self.pltPitch =      np.append(self.pltPitch,      [-f9Pitch])
       self.pltXdot =       np.append(self.pltXdot,       [f9Vel.x])
       self.pltYdot =       np.append(self.pltYdot,       [f9Vel.y])
       self.pltZdot =       np.append(self.pltZdot,       [f9Vel.z])
@@ -560,7 +560,7 @@ class MyApp(ShowBase):
 
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(-150, 0, 80))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(0, 150, 80))
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again

@@ -24,7 +24,7 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-750mpsdown'
-initFilename = '20km-10%prop-500mpsdown'
+initFilename = '20km-10%prop-rotated-lateral-drop'
 
 # Filename to read step tests from (don't include the .csv)
 stepFilename = 'gridRotate'

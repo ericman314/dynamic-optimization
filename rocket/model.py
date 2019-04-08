@@ -6,10 +6,11 @@ import random
 import os.path
 
 
-def getModel():
+def getModel(simTime):
 
-  m = GEKKO()
-  m.options.NODES = 3
+  m = GEKKO(remote=False)
+  m.time = simTime
+  m.options.NODES = 2
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
   # Constants
@@ -17,7 +18,7 @@ def getModel():
   drymass = m.Const(value=27200)
 
   m.Throttle = m.MV(value=1.0, lb=0.57, ub=1.0)
-  m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
+  m.EngineOn = m.MV(value=1, lb=0, ub=1, integer=True)
   m.propMass = m.Var(value=1000)
 
   m.f9ThrustSL = m.Const(7607000 / 9)     # N, per engine
@@ -25,27 +26,38 @@ def getModel():
     
 
   Pi = m.Const(value=np.pi)
-  m.Gimbalx = m.Param(value=0)  # Angle from linear Thrust in x direction
-  m.Gimbaly = m.Param(value=0)  # Angle from linear thrust in y direction
+  m.Gimbalx = m.MV(value=0)  # Angle from linear Thrust in x direction
+  m.Gimbaly = m.MV(value=0)  # Angle from linear thrust in y direction
 
   m.Gridx = m.MV(value=0)
   m.Gridy = m.MV(value=0)
 
   # Position
-  m.x = m.Var(value=0)
-  m.y = m.Var(value=0)
-  m.z = m.Var(value=0)
+  m.x = m.CV(value=0)
+  m.y = m.CV(value=0)
+  m.z = m.CV(value=0)
 
   # Velocity
-  m.vx = m.Var(value=0)
-  m.vy = m.Var(value=0)
-  m.vz = m.Var(value=0)
+  m.vx = m.CV(value=0)
+  m.vy = m.CV(value=0)
+  m.vz = m.CV(value=0)
 
-  m.θ_x = m.Var(value=0)  # x angle
-  m.θ_y = m.Var(value=0)  # y angle
+  m.θ_x = m.CV(value=0)  # x angle
+  m.θ_y = m.CV(value=0)  # y angle
   m.w_x = m.Var(value=0)  # Rotational velocity, x direction (Initial conditions for angular velocity not supported yet)
   m.w_y = m.Var(value=0)
- 
+
+##Assign parameters as FV or MV
+  # m.pointingAuthority = m.FV(value=4000)
+  m.liftAuthority = m.FV(value=255.38)
+  m.dragAuthority = m.FV(value=1.5, lb=0.1, ub=3.0)
+  # m.gimbalAuthority = m.FV(value=0.28)
+  m.gridAuthority = m.FV(value=7.42)
+  m.pointingAuthority = m.MV(value=4000)
+  # m.liftAuthority = m.MV(value=300)
+  # m.dragAuthority = m.MV(value=1.5, lb=0.1, ub=3.0)
+  m.gimbalAuthority = m.MV(value=0.28, lb=0.01, ub=0.5)
+  # m.gridAuthority = m.MV(value=12)
 
   vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)
   vRelAirMag = m.Intermediate( m.sqrt(vRelAir2) )
@@ -60,28 +72,26 @@ def getModel():
 
   dynPress = m.Intermediate(0.5 * ρ * vRelAir2)
 
-  Ifactorempirical = m.Param(value=251.0)
+  # Ifactorempirical = m.FV(value=251.0)
+  Ifactorempirical = m.MV(value=251.0)
   I_rocket = m.Intermediate( Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
   
 
   # Force the rocket point in the direction of travel
-  pointingAuthority = m.Param(4000)
   pointingErrorX = m.Intermediate(m.vx / m.sqrt(vRelAir2) + m.θ_x)
   pointingErrorY = m.Intermediate(m.vy / m.sqrt(vRelAir2) + m.θ_y)
-  pointingTauX = m.Intermediate(-pointingErrorX * pointingAuthority * dynPress)
-  pointingTauY = m.Intermediate(-pointingErrorY * pointingAuthority * dynPress)
+  pointingTauX = m.Intermediate(-pointingErrorX * m.pointingAuthority * dynPress)
+  pointingTauY = m.Intermediate(-pointingErrorY * m.pointingAuthority * dynPress)
 
   # Rocket body should generate some lift if not pointing exactly correct
-  liftAuthority = m.Param(300)
-  Liftx = m.Intermediate(-pointingErrorX * liftAuthority * dynPress)
-  Lifty = m.Intermediate(-pointingErrorY * liftAuthority * dynPress)
+  Liftx = m.Intermediate(-pointingErrorX * m.liftAuthority * dynPress)
+  Lifty = m.Intermediate(-pointingErrorY * m.liftAuthority * dynPress)
 
   m.AOA = m.Intermediate( m.sqrt(pointingErrorX**2 + pointingErrorY**2) )
 
   # Slow the rocket down in the direction of travel (drag)
-  dragAuthority = m.Param(1.5)
   dragArea = m.Intermediate(10.8 + 163.5 * m.AOA)
-  dragForce = m.Intermediate(dynPress * dragArea * dragAuthority)
+  dragForce = m.Intermediate(dynPress * dragArea * m.dragAuthority)
 
   Dragx = m.Intermediate( -dragForce * vRelAirNormx)
   Dragy = m.Intermediate( -dragForce * vRelAirNormy)
@@ -102,14 +112,12 @@ def getModel():
 
   # Engine gimballing exerts a torque on the rocket
 
-  gimbalAuthority = m.Param(0.28)
-  gimbalTauX = m.Intermediate(-m.Thrust * m.Gimbalx * gimbalAuthority)
-  gimbalTauY = m.Intermediate(-m.Thrust * m.Gimbaly * gimbalAuthority)
+  gimbalTauX = m.Intermediate(-m.Thrust * m.Gimbalx * m.gimbalAuthority)
+  gimbalTauY = m.Intermediate(-m.Thrust * m.Gimbaly * m.gimbalAuthority)
 
   # Grid fins exert a torque on the rocket (technically, it alters the pointing error, but this should average out to be correct)
-  gridAuthority = m.Param(12)
-  gridTauX = m.Intermediate(-m.Gridx * dynPress * gridAuthority)
-  gridTauY = m.Intermediate(-m.Gridy * dynPress * gridAuthority)
+  gridTauX = m.Intermediate(-m.Gridx * dynPress * m.gridAuthority)
+  gridTauY = m.Intermediate(-m.Gridy * dynPress * m.gridAuthority)
 
   # Equation - Newtonian
   m.Equation(m.z.dt() == m.vz)

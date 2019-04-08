@@ -22,9 +22,10 @@ import os.path
 # Gy[int(0.7*n):int(0.72*n)] = 0 # -0.01
 
 
-def getModel():
+def getModel(simTime):
 
-  m = GEKKO()
+  m = GEKKO(remote=False)
+  m.time = simTime
   m.options.NODES = 3
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 

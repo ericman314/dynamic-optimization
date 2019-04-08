@@ -23,21 +23,21 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-# initFilename = '500km-drop'
-initFilename = '40km-5%prop-750mpsdown'
+# initFilename = '500km-750mpsdown'
+initFilename = '20km-10%prop-500mpsdown'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gridX-5'
+stepFilename = 'gridRotate'
 
-endTime = 60    # Set to 0 to run until hitting the ground
+endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
 shouldRunStepTests = True
 
 # Disable individual forces (set to 0 to disable)
-dragFactor = 0
-liftFactor = 0
+dragFactor = 1
+liftFactor = 1
 gridFactor = 1
 
 # Miscellaneous configs for Panda3d
@@ -98,7 +98,7 @@ class MyApp(ShowBase):
     self.f9Radius = 1.8542     # Radius of F9 in meters
     self.f9Height = 47         # Height of F9 in meters
     self.f9COMoffset = -8            # Center of mass relative to center of body, in meters
-    self.f9GridFinAuthority = 10      # Some arbitrary number to say how much lift the grid fins produce
+    self.f9GridFinAuthority = 10      # Some arbitrary number to say how much lift the grid fins produce (oh, just realized we never use this anywhere)
 
     # Simulation variables    
     self.propLoad = 0.1 * self.f9PropMass    # Amount of full-tank propellent remaining
@@ -131,7 +131,7 @@ class MyApp(ShowBase):
 
     self.f9BodyNP.node().setMass(self.f9BodyMass + self.propLoad)
     self.f9BodyNP.setPos(initX, initY, initZ)
-    self.f9BodyNP.setHpr(initRoll, initPitch, initYaw)
+    self.f9BodyNP.setHpr(initRoll, -initPitch, initYaw)
     self.f9BodyNP.node().set_linear_velocity(LVector3f(initXdot, initYdot, initZdot))
     
     # Load step tests
@@ -249,7 +249,7 @@ class MyApp(ShowBase):
     self.pltGeeLateral = np.zeros(0)
     self.pltAOA = np.zeros(0)
     
-    self.pltSaveInterval = 1    # seconds
+    self.pltSaveInterval = 1.0    # seconds
     self.nextPltSaveTime = 0
 
     self.endTime = endTime    # 0 = five seconds after landing
@@ -534,7 +534,7 @@ class MyApp(ShowBase):
       self.pltZ =          np.append(self.pltZ,          [f9Pos.z])
       self.pltRoll =       np.append(self.pltRoll,       [f9Roll])
       self.pltYaw =        np.append(self.pltYaw,        [f9Yaw])
-      self.pltPitch =      np.append(self.pltPitch,      [f9Pitch])
+      self.pltPitch =      np.append(self.pltPitch,      [-f9Pitch])
       self.pltXdot =       np.append(self.pltXdot,       [f9Vel.x])
       self.pltYdot =       np.append(self.pltYdot,       [f9Vel.y])
       self.pltZdot =       np.append(self.pltZdot,       [f9Vel.z])

@@ -53,10 +53,10 @@ def getModel(simTime):
   m.dragAuthority = m.FV(value=1.5, lb=0.1, ub=3.0)
   # m.gimbalAuthority = m.FV(value=0.28)
   m.gridAuthority = m.FV(value=7.42)
-  m.pointingAuthority = m.MV(value=4000)
+  m.pointingAuthority = m.MV(value=3307.6969772)
   # m.liftAuthority = m.MV(value=300)
   # m.dragAuthority = m.MV(value=1.5, lb=0.1, ub=3.0)
-  m.gimbalAuthority = m.MV(value=0.28, lb=0.01, ub=0.5)
+  m.gimbalAuthority = m.FV(value=0.28, lb=0.01, ub=0.5)
   # m.gridAuthority = m.MV(value=12)
 
   vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)

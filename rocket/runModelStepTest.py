@@ -5,7 +5,7 @@ import os
 from model import getModel
 
 # Load the results from the simulation
-simFilename = '20km-10%prop-500mpsdown_gridRotate'
+simFilename = '20km-10%prop-drop_gimbalX-low'
 
 # Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)
 sim = np.loadtxt(os.path.join('simulationData', simFilename + '.csv'), delimiter=',')
@@ -64,11 +64,11 @@ m.Gridy.value = simGridY
 if m.options.IMODE == 5:
 
 	## Set FV/MV's STATUS = 1 to estimate 
-	m.pointingAuthority.STATUS = 1
-	m.liftAuthority.STATUS = 1
+	m.pointingAuthority.STATUS = 0
+	m.liftAuthority.STATUS = 0
 	m.dragAuthority.STATUS = 0
 	m.gimbalAuthority.STATUS = 1
-	m.gridAuthority.STATUS = 1
+	m.gridAuthority.STATUS = 0
 
 	## Set CV's FSTATUS = 1 to receive measurements
 	# m.x.STATUS = 1
@@ -76,14 +76,14 @@ if m.options.IMODE == 5:
 	# m.z.STATUS = 1
 	m.x.FSTATUS = 1
 	m.y.FSTATUS = 1
-	m.z.FSTATUS = 0
+	m.z.FSTATUS = 1
 
 	# m.vx.STATUS = 1
 	# m.vy.STATUS = 1
 	# m.vz.STATUS = 1
 	m.vx.FSTATUS = 1
 	m.vy.FSTATUS = 1
-	m.vz.FSTATUS = 0
+	m.vz.FSTATUS = 1
 
 	# m.θ_x.STATUS = 1
 	# m.θ_y.STATUS = 1

@@ -24,10 +24,10 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-750mpsdown'
-initFilename = '20km-10%prop-rotated-lateral-drop'
+initFilename = '20km-10%prop-drop'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gridRotate'
+stepFilename = 'gimbalX-low'
 
 endTime = 0    # Set to 0 to run until hitting the ground
 

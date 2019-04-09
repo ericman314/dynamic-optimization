@@ -25,10 +25,10 @@ from math import pi, sin, cos
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-750mpsdown'
-initFilename = '20km-10%prop-500mpsdown'
+initFilename = 'nrol-76'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gridRotate'
+stepFilename = 'none'
 
 endTime = 0    # Set to 0 to run until hitting the ground
 
@@ -214,6 +214,7 @@ class MyApp(ShowBase):
 
     self.exitFunc = self.myExitFunc
 
+
     # Create a shared data dictionary to pass data to and from the controller
     # Initialize the shared data with null (zero) outputs
     # Remember to use locks when accessing shared data
@@ -258,11 +259,8 @@ class MyApp(ShowBase):
 
     self.hasLandedOrCrashed = False
 
-
     # Initialize the mhe and mpc
     self.controller = EstimatorController()
-
-
 
   # Perform the physics here
   def tick(self, task):
@@ -523,7 +521,7 @@ class MyApp(ShowBase):
 
     self.npTelemetryFeed.setText('\n'.join(osdText))
 
-    if self.endTime == 0 and f9Pos.z < 20:
+    if self.endTime == 0 and f9Pos.z + f9Vel.z * 0.1 < 20:
       print ('Rocket has landed or tipped over. Ending the simulation in 5 seconds.')
       self.hasLandedOrCrashed = True
       self.endTime = task.time + 5
@@ -568,7 +566,7 @@ class MyApp(ShowBase):
 
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(0, 150, 80))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(40, 30, 120))
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again

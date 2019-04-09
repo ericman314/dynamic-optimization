@@ -12,29 +12,32 @@ from runModelController import runController
 import sys
 import os.path
 import math
-from time import time, strftime, localtime, sleep
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 
 import imagery
 import falcon
+from estimatorController import EstimatorController
 
 from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
 # initFilename = '500km-750mpsdown'
-initFilename = '20km-10%prop-500mpsdown'
+initFilename = 'nrol-76'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'gridRotate'
+stepFilename = 'none'
 
 endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
-shouldRunController = False
-shouldRunStepTests = True
+shouldRunController = True
+shouldRunStepTests = False
 
+# Controller run interval (seconds)
+controllerRunInterval = 1
 # Disable individual forces (set to 0 to disable)
 dragFactor = 1
 liftFactor = 1
@@ -256,6 +259,8 @@ class MyApp(ShowBase):
 
     self.hasLandedOrCrashed = False
 
+    # Initialize the mhe and mpc
+    self.controller = EstimatorController()
 
   # Perform the physics here
   def tick(self, task):
@@ -516,7 +521,7 @@ class MyApp(ShowBase):
 
     self.npTelemetryFeed.setText('\n'.join(osdText))
 
-    if self.endTime == 0 and f9Pos.z < 20:
+    if self.endTime == 0 and f9Pos.z + f9Vel.z * 0.1 < 20:
       print ('Rocket has landed or tipped over. Ending the simulation in 5 seconds.')
       self.hasLandedOrCrashed = True
       self.endTime = task.time + 5
@@ -551,6 +556,7 @@ class MyApp(ShowBase):
 
     with self.lock:
       # Write current telemetry to shared data
+      self.sharedData['time'] = task.time
       self.sharedData['x'] = f9Pos.x
       self.sharedData['y'] = f9Pos.y
       self.sharedData['z'] = f9Pos.z
@@ -560,7 +566,7 @@ class MyApp(ShowBase):
 
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(0, 150, 80))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(40, 30, 120))
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again
@@ -568,9 +574,10 @@ class MyApp(ShowBase):
   # Runs on a separate thread
   def runController(self, task):
     
-    print ('Controller began on frame', task.frame)
+    startTime = time.time()
     
     with self.lock:
+      simTime = self.sharedData['time']
       x = self.sharedData['x']
       y = self.sharedData['y']
       z = self.sharedData['z']
@@ -578,21 +585,34 @@ class MyApp(ShowBase):
       pitch = self.sharedData['pitch']
       prop = self.sharedData['prop']
 
+    print ('Controller began at time', simTime)
 
-    result = runController(x=x, y=y, z=z, yaw=yaw, pitch=pitch, prop=prop, time=task.time)
+    # Run estimator
+    self.controller.runMHE(simTime, x, y, z, yaw, pitch, prop)
 
-    with self.lock:
-      self.sharedData['throttle'] = result['throttle']
-      self.sharedData['gimbalX'] = result['gimbalX']
-      self.sharedData['gimbalY'] = result['gimbalY']
-      self.sharedData['gridX'] = result['gridX']
-      self.sharedData['gridY'] = result['gridY']
-      self.sharedData['engineOn'] = result['engineOn']
-      self.sharedData['time'] = task.time
+    # Copy estimated variables to controller
+    self.controller.setMPCVars(self.controller.getMHEVars())
 
+    # Run controller
+    MVs = self.controller.runMPC()
+    
+    # TODO: Uncomment next when runMPC actually returns something
+    # with self.lock:
+    #   self.sharedData['throttle'] = MVs[0][1]
+    #   self.sharedData['engineOn'] = MVs[0][2]
+    #   self.sharedData['gimbalX'] = MVs[0][3]
+    #   self.sharedData['gimbalY'] = MVs[0][4]
+    #   self.sharedData['gridX'] = MVs[0][5]
+    #   self.sharedData['gridY'] = MVs[0][6]
+    
     print (self.sharedData)
 
-    # Immediately begin this task again
+    # Pause until it is time to run again.
+    toSleep = startTime + 1 - time.time()
+    if toSleep > 0:
+      time.sleep(toSleep)
+
+    # Run this task again immediately
     return Task.cont
 
   def myExitFunc(self):

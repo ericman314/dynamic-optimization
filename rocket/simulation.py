@@ -231,6 +231,19 @@ class MyApp(ShowBase):
     self.f9PitchLast = f9Pitch
     self.f9YawLast = f9Yaw
 
+    # Initialize these attributes
+    self.xEst = 0
+    self.yEst = 0
+    self.zEst = 0
+    self.vxEst = 0
+    self.vyEst = 0
+    self.vzEst = 0
+    self.θ_xEst = 0
+    self.θ_yEst = 0
+    self.w_xEst = 0
+    self.w_yEst = 0
+    self.propMassEst = 0
+
     # Initialize arrays to store detailed telemetry data for debugging, plotting, optimizing, etc.
     self.pltTime = np.zeros(0)
     self.pltX = np.zeros(0)
@@ -251,6 +264,17 @@ class MyApp(ShowBase):
     self.pltGeeAxial = np.zeros(0)
     self.pltGeeLateral = np.zeros(0)
     self.pltAOA = np.zeros(0)
+    self.pltxEst = np.zeros(0)
+    self.pltyEst = np.zeros(0)
+    self.pltzEst = np.zeros(0)
+    self.pltvxEst = np.zeros(0)
+    self.pltvyEst = np.zeros(0)
+    self.pltvzEst = np.zeros(0)
+    self.pltθ_xEst = np.zeros(0)
+    self.pltθ_yEst = np.zeros(0)
+    self.pltw_xEst = np.zeros(0)
+    self.pltw_yEst = np.zeros(0)
+    self.pltpropMassEst = np.zeros(0)
     
     self.pltSaveInterval = 1.0    # seconds
     self.nextPltSaveTime = 0
@@ -274,6 +298,20 @@ class MyApp(ShowBase):
         self.gridX = self.sharedData['gridX']
         self.gridY = self.sharedData['gridY']
         self.engineOn = self.sharedData['engineOn']
+
+        # Also save the estimated variables for debugging purposes
+        if 'xEst' in self.sharedData:
+          self.xEst = self.sharedData['xEst']
+          self.yEst = self.sharedData['yEst']
+          self.zEst = self.sharedData['zEst']
+          self.vxEst = self.sharedData['vxEst']
+          self.vyEst = self.sharedData['vyEst']
+          self.vzEst = self.sharedData['vzEst']
+          self.θ_xEst = self.sharedData['θ_xEst']
+          self.θ_yEst = self.sharedData['θ_yEst']
+          self.w_xEst = self.sharedData['w_xEst']
+          self.w_yEst = self.sharedData['w_yEst']
+          self.propMassEst = self.sharedData['propMassEst']
 
     if shouldRunStepTests:
       # Find the right time
@@ -552,7 +590,17 @@ class MyApp(ShowBase):
       self.pltGeeAxial =   np.append(self.pltGeeAxial,   [geeAxial])
       self.pltGeeLateral = np.append(self.pltGeeLateral, [geeLateral])
       self.pltAOA =        np.append(self.pltAOA,        [AOA/math.pi*180])
-
+      self.pltxEst =       np.append(self.pltxEst,       [self.xEst])
+      self.pltyEst =       np.append(self.pltyEst,       [self.yEst])
+      self.pltzEst =       np.append(self.pltzEst,       [self.zEst])
+      self.pltvxEst =      np.append(self.pltvxEst,      [self.vxEst])
+      self.pltvyEst =      np.append(self.pltvyEst,      [self.vyEst])
+      self.pltvzEst =      np.append(self.pltvzEst,      [self.vzEst])
+      self.pltθ_xEst =     np.append(self.pltθ_xEst,     [self.θ_xEst])
+      self.pltθ_yEst =     np.append(self.pltθ_yEst,     [self.θ_yEst])
+      self.pltw_xEst =     np.append(self.pltw_xEst,     [self.w_xEst])
+      self.pltw_yEst =     np.append(self.pltw_yEst,     [self.w_yEst])
+      self.pltpropMassEst = np.append(self.pltpropMassEst, [self.propMassEst])
 
     with self.lock:
       # Write current telemetry to shared data
@@ -591,20 +639,36 @@ class MyApp(ShowBase):
     self.controller.runMHE(simTime, x, y, z, yaw, pitch, prop)
 
     # Copy estimated variables to controller
-    self.controller.setMPCVars(self.controller.getMHEVars())
+    mheVars = self.controller.getMHEVars()
+
+    self.controller.setMPCVars(mheVars)
 
     # Run controller
     MVs = self.controller.runMPC()
     
-    # TODO: Uncomment next when runMPC actually returns something
-    # with self.lock:
-    #   self.sharedData['throttle'] = MVs[0][1]
-    #   self.sharedData['engineOn'] = MVs[0][2]
-    #   self.sharedData['gimbalX'] = MVs[0][3]
-    #   self.sharedData['gimbalY'] = MVs[0][4]
-    #   self.sharedData['gridX'] = MVs[0][5]
-    #   self.sharedData['gridY'] = MVs[0][6]
+    with self.lock:
+      # TODO: Uncomment next when runMPC actually returns something
+      # self.sharedData['throttle'] = MVs[0][1]
+      # self.sharedData['engineOn'] = MVs[0][2]
+      # self.sharedData['gimbalX'] = MVs[0][3]
+      # self.sharedData['gimbalY'] = MVs[0][4]
+      # self.sharedData['gridX'] = MVs[0][5]
+      # self.sharedData['gridY'] = MVs[0][6]
+
+      # Record estimated parameters for debugging purposes
+      self.sharedData['xEst'] = mheVars[0]
+      self.sharedData['yEst'] = mheVars[1]
+      self.sharedData['zEst'] = mheVars[2]
+      self.sharedData['vxEst'] = mheVars[3]
+      self.sharedData['vyEst'] = mheVars[4]
+      self.sharedData['vzEst'] = mheVars[5]
+      self.sharedData['θ_xEst'] = mheVars[6]
+      self.sharedData['θ_yEst'] = mheVars[7]
+      self.sharedData['w_xEst'] = mheVars[8]
+      self.sharedData['w_yEst'] = mheVars[9]
+      self.sharedData['propMassEst'] = mheVars[10]
     
+
     print (self.sharedData)
 
     # Pause until it is time to run again.
@@ -623,21 +687,40 @@ class MyApp(ShowBase):
     fnData = os.path.join(dirName, outputFilename)
     print ('Writing data to ' + fnData)
 
-    data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA)).transpose()
-    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)'
+    data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA,
+    self.pltxEst,
+    self.pltyEst,
+    self.pltzEst,
+    self.pltvxEst,
+    self.pltvyEst,
+    self.pltvzEst,
+    self.pltθ_xEst,
+    self.pltθ_yEst,
+    self.pltw_xEst,
+    self.pltw_yEst,
+    self.pltpropMassEst
+)).transpose()
+    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg), estX (m), estY (m), estZ (m), estVx (m/s), estVy (m/s), estVz (m/s), estθx, estθy, estwx, estwy, estPropMass'
     np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top)
 
     print ('Generating a few interesting plots')
 
     plt.figure(figsize=(11,8))
     plt.subplot(2, 1, 1)
-    plt.plot(self.pltTime, self.pltX)
-    plt.plot(self.pltTime, self.pltY)
-    plt.plot(self.pltTime, self.pltZ)
+    plt.plot(self.pltTime, self.pltX, 'r-')
+    plt.plot(self.pltTime, self.pltxEst, 'r:')
+    plt.plot(self.pltTime, self.pltY, 'b-')
+    plt.plot(self.pltTime, self.pltyEst, 'b:')
+    plt.plot(self.pltTime, self.pltZ, 'y-')
+    plt.plot(self.pltTime, self.pltzEst, 'y:')
     plt.subplot(2, 1, 2)
-    plt.plot(self.pltTime, self.pltXdot)
-    plt.plot(self.pltTime, self.pltYdot)
-    plt.plot(self.pltTime, self.pltZdot)
+    plt.plot(self.pltTime, self.pltXdot, 'r-')
+    plt.plot(self.pltTime, self.pltvxEst, 'r:')
+    plt.plot(self.pltTime, self.pltYdot, 'b-')
+    plt.plot(self.pltTime, self.pltvyEst, 'b:')
+    plt.plot(self.pltTime, self.pltZdot, 'y-')
+    plt.plot(self.pltTime, self.pltvzEst, 'y:')
+    
     
     plt.show()
 

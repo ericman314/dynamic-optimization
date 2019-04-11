@@ -82,17 +82,17 @@ class EstimatorController:
       An array containing these variables in this order: x, y, z, vx, vy, vz, θ_x, θ_y, w_x, w_y, and propMass
     """
 
-    return np.array([ self.mhe.x.value[-1],
-                      self.mhe.y.value[-1],
-                      self.mhe.z.value[-1],
-                      self.mhe.vx.value[-1],
-                      self.mhe.vy.value[-1],
-                      self.mhe.vz.value[-1],
-                      self.mhe.θ_x.value[-1],
-                      self.mhe.θ_y.value[-1],
-                      self.mhe.w_x.value[-1],
-                      self.mhe.w_y.value[-1],
-                      self.mhe.propMass.value[-1] ])
+    return np.array([ self.mhe.x.MODEL,
+                      self.mhe.y.MODEL,
+                      self.mhe.z.MODEL,
+                      self.mhe.vx.MODEL,
+                      self.mhe.vy.MODEL,
+                      self.mhe.vz.MODEL,
+                      self.mhe.θ_x.MODEL,
+                      self.mhe.θ_y.MODEL,
+                      self.mhe.w_x.MODEL,
+                      self.mhe.w_y.MODEL,
+                      self.mhe.propMass.MODEL ])
 
 
   def setMPCVars(self, v):

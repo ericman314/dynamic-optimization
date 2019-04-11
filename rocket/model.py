@@ -18,7 +18,6 @@ def getModel():
 
   m.Throttle = m.MV(value=1.0, lb=0.57, ub=1.0)
   m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
-  m.propMass = m.Var(value=1000)
 
   m.f9ThrustSL = m.Const(7607000 / 9)     # N, per engine
   m.f9ThrustVac = m.Const(8227000 / 9)    # N, per engine
@@ -47,6 +46,9 @@ def getModel():
   m.w_x = m.CV(value=0)  # Rotational velocity, x direction (Initial conditions for angular velocity not supported yet)
   m.w_y = m.CV(value=0)
  
+  # Prop mass
+  m.propMass = m.SV(value=1000)
+
   # Adjustable parameters
   m.pointingAuthority = m.FV(4000)
   m.liftAuthority = m.FV(300)

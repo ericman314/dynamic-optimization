@@ -1,15 +1,42 @@
 from model import getModel
+import numpy as np
 from time import sleep
 
 class EstimatorController:
   def __init__(self):
     """Initialize the estimator (mhe) and controller (mpc)."""
 
+    # ----- Estimator --------------------------
     self.mhe = getModel()
-    # Set mode, time horizon, tuning params, options, etc. for the MHE
 
+    self.mhe.options.IMODE = 5
+
+    # Only estimating velocities from uncorrupted position data, so not many points needed here
+    self.mhe.time = np.linspace(0, 4, 5)
+
+    # Measured state variables and MVs
+    self.mhe.x.FSTATUS = 1
+    self.mhe.y.FSTATUS = 1
+    self.mhe.z.FSTATUS = 1
+    self.mhe.θ_x.FSTATUS = 1
+    self.mhe.θ_y.FSTATUS = 1
+    self.mhe.propMass.FSTATUS = 1
+    self.mhe.Throttle.FSTATUS = 1
+    self.mhe.EngineOn.FSTATUS = 1
+    self.mhe.Gimbalx.FSTATUS = 1
+    self.mhe.Gimbaly.FSTATUS = 1
+    self.mhe.Gridx.FSTATUS = 1
+    self.mhe.Gridy.FSTATUS = 1
+
+    # Unmeasured, estimated state variables
+    self.mhe.vx.STATUS = 1
+    self.mhe.vy.STATUS = 1
+    self.mhe.vz.STATUS = 1
+    self.mhe.w_x.STATUS = 1
+    self.mhe.w_y.STATUS = 1
+
+    # ----- Controller --------------------------
     self.mpc = getModel()
-    # Set mode, time horizon, tuning params, options, etc. for the MPC
 
   
   def runMHE(self, time, x, y, z, yaw, pitch, prop):
@@ -35,7 +62,15 @@ class EstimatorController:
       The current measured propellent remaining, in kg.
     """    
 
-    print( 'TODO: Run the estimator' )
+    self.mhe.x.MEAS = x
+    self.mhe.y.MEAS = x
+    self.mhe.z.MEAS = x
+    self.mhe.θ_x.MEAS = yaw * np.pi / 180
+    self.mhe.θ_y.MEAS = pitch * np.pi / 180
+    self.mhe.propMass.MEAS = prop
+
+    self.mhe.solve()
+
 
 
   def getMHEVars(self):
@@ -47,7 +82,17 @@ class EstimatorController:
       An array containing these variables in this order: x, y, z, vx, vy, vz, θ_x, θ_y, w_x, w_y, and propMass
     """
 
-    print( 'TODO: Return the estimated variables from the mhe' )
+    return np.array([ self.mhe.x.value[-1],
+                      self.mhe.y.value[-1],
+                      self.mhe.z.value[-1],
+                      self.mhe.vx.value[-1],
+                      self.mhe.vy.value[-1],
+                      self.mhe.vz.value[-1],
+                      self.mhe.θ_x.value[-1],
+                      self.mhe.θ_y.value[-1],
+                      self.mhe.w_x.value[-1],
+                      self.mhe.w_y.value[-1],
+                      self.mhe.propMass.value[-1] ])
 
 
   def setMPCVars(self, v):

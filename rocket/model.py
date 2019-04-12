@@ -6,18 +6,23 @@ import random
 import os.path
 
 
-def getModel():
+def getModel(name):
 
-  m = GEKKO()
-  m.options.NODES = 3
+  m = GEKKO(name=name)
+
+  # m.time = np.linspace(0,60,61)
+
+  m.options.SOLVER = 3
+  m.options.NODES = 2
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
   # Constants
-  g = m.Const(value=9.8)
+  m.g = m.Const(value=9.8)
   drymass = m.Const(value=27200)
 
   m.Throttle = m.MV(value=1.0, lb=0.57, ub=1.0)
   m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
+  # m.EngineOn = m.Param(value = 1)
 
   m.f9ThrustSL = m.Const(7607000 / 9)     # N, per engine
   m.f9ThrustVac = m.Const(8227000 / 9)    # N, per engine
@@ -27,8 +32,8 @@ def getModel():
   m.Gimbalx = m.MV(value=0)  # Angle from linear Thrust in x direction
   m.Gimbaly = m.MV(value=0)  # Angle from linear thrust in y direction
 
-  m.Gridx = m.MV(value=0)
-  m.Gridy = m.MV(value=0)
+  m.Gridx = m.MV(value=0, lb=-30, ub=30)
+  m.Gridy = m.MV(value=0, lb=-30, ub=30)
 
   # Position
   m.x = m.CV(value=0)
@@ -50,12 +55,12 @@ def getModel():
   m.propMass = m.SV(value=1000)
 
   # Adjustable parameters
-  m.pointingAuthority = m.FV(4000)
-  m.liftAuthority = m.FV(300)
-  m.dragAuthority = m.FV(1.5)
-  m.gimbalAuthority = m.FV(0.28)
-  m.gridAuthority = m.FV(12)
-  Ifactorempirical = m.FV(value=251.0)
+  m.pointingAuthority = m.Param(4000)
+  m.liftAuthority = m.Param(300)
+  m.dragAuthority = m.Param(1.5)
+  m.gimbalAuthority = m.Param(0.28)
+  m.gridAuthority = m.Param(12)
+  Ifactorempirical = m.Param(value=251.0)
 
   vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)
   vRelAirMag = m.Intermediate( m.sqrt(vRelAir2) )
@@ -116,7 +121,7 @@ def getModel():
 
   m.Equation(m.vx.dt() ==  0 + (Dragx + Thrustx + Liftx) / (m.propMass+drymass))
   m.Equation(m.vy.dt() ==  0 + (Dragy + Thrusty + Lifty) / (m.propMass+drymass))
-  m.Equation(m.vz.dt() == -g + (Dragz + Thrustz) / (m.propMass+drymass))
+  m.Equation(m.vz.dt() == -m.g + (Dragz + Thrustz) / (m.propMass+drymass))
 
   m.Equation(m.w_x.dt()*I_rocket == pointingTauX + gimbalTauX + gridTauX)
   m.Equation(m.w_y.dt()*I_rocket == pointingTauY + gimbalTauY + gridTauY)

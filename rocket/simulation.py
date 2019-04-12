@@ -202,6 +202,15 @@ class MyApp(ShowBase):
     font = loader.loadFont('Lato-Regular.ttf')   
     self.npTelemetryFeed = OnscreenText(text = 'Waiting for downlink...', parent=base.a2dTopLeft, font=font, align=TextNode.ALeft, scale = 0.06, pos=(0.05, -0.1), fg=(1,1,1,1), shadow=(0,0,0,0.5))
 
+
+    # Create a shared data dictionary to pass data to and from the controller
+    # Initialize the shared data with null (zero) outputs
+    # Remember to use locks when accessing shared data
+    self.sharedData = { 'throttle': 0, 'gimbalX': 0, 'gimbalY': 0, 'gridX': 0, 'gridY': 0, 'engineOn': False }
+
+    # Lock for accessing shared data
+    self.lock = threading.Lock()
+
     # Add the tick procedure to the main task manager.
     self.taskMgr.add(self.tick, "Tick")
 
@@ -213,15 +222,6 @@ class MyApp(ShowBase):
     self.accept('escape', self.userExit) 
 
     self.exitFunc = self.myExitFunc
-
-
-    # Create a shared data dictionary to pass data to and from the controller
-    # Initialize the shared data with null (zero) outputs
-    # Remember to use locks when accessing shared data
-    self.sharedData = { 'throttle': 0, 'gimbalX': 0, 'gimbalY': 0, 'gridX': 0, 'gridY': 0, 'engineOn': False }
-
-    # Lock for accessing shared data
-    self.lock = threading.Lock()
 
     # Initialize variables to compute derivatives
     self.f9VelLast = self.f9BodyNP.node().getLinearVelocity()
@@ -611,6 +611,11 @@ class MyApp(ShowBase):
       self.sharedData['yaw'] = f9Yaw
       self.sharedData['pitch'] = f9Pitch
       self.sharedData['prop'] = self.propLoad
+      self.sharedData['vx'] = f9Vel.x
+      self.sharedData['vy'] = f9Vel.y
+      self.sharedData['vz'] = f9Vel.z
+      self.sharedData['yawRate'] = f9YawRate
+      self.sharedData['pitchRate'] = f9PitchRate
 
     # Position camera to look at rocket
     
@@ -624,6 +629,10 @@ class MyApp(ShowBase):
     
     startTime = time.time()
     
+    # Do not run controller until after sharedData has been written to at least once
+    if 'time' not in self.sharedData:
+      return Task.cont
+
     with self.lock:
       simTime = self.sharedData['time']
       x = self.sharedData['x']
@@ -632,42 +641,87 @@ class MyApp(ShowBase):
       yaw = self.sharedData['yaw']
       pitch = self.sharedData['pitch']
       prop = self.sharedData['prop']
+      vx = self.sharedData['vx']
+      vy = self.sharedData['vy']
+      vz = self.sharedData['vz']
+      yawRate = self.sharedData['yawRate']
+      pitchRate = self.sharedData['pitchRate']
+
 
     print ('Controller began at time', simTime)
 
     # Run estimator
-    self.controller.runMHE(simTime, x, y, z, yaw, pitch, prop)
+    # self.controller.runMHE(simTime, x, y, z, yaw, pitch, prop)
 
     # Copy estimated variables to controller
-    mheVars = self.controller.getMHEVars()
+    # mheVars = self.controller.getMHEVars()
+
+    # Temporary until we get the estimator working right
+    # Just set the estimator variables from our simulation
+
+    mheVars = np.array([
+      x, y, z, vx, vy, vz, yaw * np.pi/180, pitch * np.pi/180, yawRate * np.pi/180, pitchRate * np.pi/180, prop
+    ])
+
+    print (mheVars)
 
     self.controller.setMPCVars(mheVars)
 
     # Run controller
-    MVs = self.controller.runMPC()
-    
-    with self.lock:
-      # TODO: Uncomment next when runMPC actually returns something
-      # self.sharedData['throttle'] = MVs[0][1]
-      # self.sharedData['engineOn'] = MVs[0][2]
-      # self.sharedData['gimbalX'] = MVs[0][3]
-      # self.sharedData['gimbalY'] = MVs[0][4]
-      # self.sharedData['gridX'] = MVs[0][5]
-      # self.sharedData['gridY'] = MVs[0][6]
+    try:
+      MVs = self.controller.runMPC()
 
-      # Record estimated parameters for debugging purposes
-      self.sharedData['xEst'] = mheVars[0]
-      self.sharedData['yEst'] = mheVars[1]
-      self.sharedData['zEst'] = mheVars[2]
-      self.sharedData['vxEst'] = mheVars[3]
-      self.sharedData['vyEst'] = mheVars[4]
-      self.sharedData['vzEst'] = mheVars[5]
-      self.sharedData['θ_xEst'] = mheVars[6]
-      self.sharedData['θ_yEst'] = mheVars[7]
-      self.sharedData['w_xEst'] = mheVars[8]
-      self.sharedData['w_yEst'] = mheVars[9]
-      self.sharedData['propMassEst'] = mheVars[10]
+      m = self.controller.mpc
+
+      dirName = 'controllerDebugOutput'
+      outputFilename = initFilename + '_' + stepFilename + '.csv'
+      fnData = os.path.join(dirName, outputFilename)
+      print ('Writing controller output to ' + fnData)
+
+      data = np.vstack((
+        m.time,
+        m.x.value,
+        m.y.value,
+        m.z.value,
+        np.zeros(m.time.size),
+        m.θ_x.value,
+        m.θ_y.value,
+        m.vx.value,
+        m.vy.value,
+        m.vz.value,
+        m.propMass.value,
+        m.Throttle.value,
+        m.Gimbalx.value,
+        m.Gimbaly.value,
+        m.Gridx.value,
+        m.Gridy.value
+      )).transpose()
+      top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg)'
+      np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top, encoding='utf-8')
     
+      with self.lock:
+        # TODO: Uncomment next when runMPC actually returns something
+        # self.sharedData['throttle'] = MVs[0][1]
+        # self.sharedData['engineOn'] = MVs[0][2]
+        # self.sharedData['gimbalX'] = MVs[0][3]
+        # self.sharedData['gimbalY'] = MVs[0][4]
+        # self.sharedData['gridX'] = MVs[0][5]
+        # self.sharedData['gridY'] = MVs[0][6]
+
+        # Record estimated parameters for debugging purposes
+        self.sharedData['xEst'] = mheVars[0]
+        self.sharedData['yEst'] = mheVars[1]
+        self.sharedData['zEst'] = mheVars[2]
+        self.sharedData['vxEst'] = mheVars[3]
+        self.sharedData['vyEst'] = mheVars[4]
+        self.sharedData['vzEst'] = mheVars[5]
+        self.sharedData['θ_xEst'] = mheVars[6]
+        self.sharedData['θ_yEst'] = mheVars[7]
+        self.sharedData['w_xEst'] = mheVars[8]
+        self.sharedData['w_yEst'] = mheVars[9]
+        self.sharedData['propMassEst'] = mheVars[10]
+    except Exception as ex:
+      print (ex)
 
     print (self.sharedData)
 

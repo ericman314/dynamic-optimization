@@ -701,7 +701,7 @@ class MyApp(ShowBase):
     self.pltpropMassEst
 )).transpose()
     top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg), estX (m), estY (m), estZ (m), estVx (m/s), estVy (m/s), estVz (m/s), estθx, estθy, estwx, estwy, estPropMass'
-    np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top)
+    np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top, encoding='utf-8')
 
     print ('Generating a few interesting plots')
 

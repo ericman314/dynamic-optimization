@@ -660,7 +660,7 @@ class MyApp(ShowBase):
     # Just set the estimator variables from our simulation
 
     mheVars = np.array([
-      x, y, z, vx, vy, vz, yaw * np.pi/180, pitch * np.pi/180, yawRate * np.pi/180, pitchRate * np.pi/180, prop
+      x, y, z, vx, vy, vz, yaw * np.pi/180, -pitch * np.pi/180, yawRate * np.pi/180, pitchRate * np.pi/180, prop
     ])
 
     print (mheVars)

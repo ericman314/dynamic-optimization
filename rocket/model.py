@@ -40,7 +40,7 @@ def getModel():
   m.vz = m.CV(value=0)
 
   # Adjustable parameters
-  m.liftAuthority = m.FV(300)
+  m.liftAuthority = m.FV(250)
   m.dragAuthority = m.FV(1.5)
   Ifactorempirical = m.FV(value=251.0)
 

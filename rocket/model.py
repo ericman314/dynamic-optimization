@@ -13,10 +13,10 @@ def getModel(name):
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
   # Constants
-  g = m.Const(value=9.8)
+  m.g = m.Const(value=9.80665)
   drymass = m.Const(value=27200)
 
-  m.Throttle = m.MV(value=0.0, lb=0.0, ub=1.0)
+  m.Throttle = m.MV(value=0.0, lb=0.57, ub=1.0)
   # m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
   m.EngineOn = m.Param(value=1)
   m.Yaw = m.MV(value=0, lb=-45, ub=45)
@@ -94,7 +94,7 @@ def getModel(name):
 
   m.Equation(m.vx.dt() ==  0 + (Dragx + Thrustx + Liftx) / (m.propMass+drymass))
   m.Equation(m.vy.dt() ==  0 + (Dragy + Thrusty + Lifty) / (m.propMass+drymass))
-  m.Equation(m.vz.dt() == -g + (Dragz + Thrustz) / (m.propMass+drymass))
+  m.Equation(m.vz.dt() == -m.g + (Dragz + Thrustz) / (m.propMass+drymass))
 
   m.Equation(m.propMass.dt() == -300 * m.Throttle * m.EngineOn) 
 

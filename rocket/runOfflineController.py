@@ -5,28 +5,35 @@ import matplotlib.pyplot as plt
 initData = np.loadtxt('offlineController init.csv', delimiter=',').transpose()
 
 mpc = getModel(name='mpc-simple')
-mpc.time = np.linspace(0, 70, 71)
-
-mpc.x.VALUE = initData[1,:]
-mpc.y.VALUE = initData[2,:]
-mpc.z.VALUE = initData[3,:]
-mpc.vx.VALUE = initData[4,:]
-mpc.vy.VALUE = initData[5,:]
-mpc.vz.VALUE = initData[6,:]
-mpc.propMass.VALUE = initData[7,:]
-mpc.Yaw.VALUE = initData[8,:]
-mpc.Pitch.VALUE = initData[9,:]
+mpc.time = np.linspace(0, 70, 36)
 
 
-# mpc.x.VALUE = initData[1,0]
-# mpc.y.VALUE = initData[2,0]
-# mpc.z.VALUE = initData[3,0]
-# mpc.vx.VALUE = initData[4,0]
-# mpc.vy.VALUE = initData[5,0]
-# mpc.vz.VALUE = initData[6,0]
-# mpc.propMass.VALUE = initData[7,0]
-# mpc.Yaw.VALUE = initData[8,0]
-# mpc.Pitch.VALUE = initData[9,0]
+_EngineOn = np.zeros(36)
+_EngineOn[22:] = 1
+mpc.EngineOn.VALUE = _EngineOn
+
+# mpc.x.VALUE = initData[1,:]
+# mpc.y.VALUE = initData[2,:]
+# mpc.z.VALUE = initData[3,:]
+# mpc.vx.VALUE = initData[4,:]
+# mpc.vy.VALUE = initData[5,:]
+# mpc.vz.VALUE = initData[6,:]
+# mpc.propMass.VALUE = initData[7,:]
+# mpc.Throttle.VALUE = initData[8,:]
+# mpc.Yaw.VALUE = initData[9,:]
+# mpc.Pitch.VALUE = initData[10,:]
+
+
+mpc.x.VALUE = initData[1,0]
+mpc.y.VALUE = initData[2,0]
+mpc.z.VALUE = initData[3,0]
+mpc.vx.VALUE = initData[4,0]
+mpc.vy.VALUE = initData[5,0]
+mpc.vz.VALUE = initData[6,0]
+mpc.propMass.VALUE = initData[7,0]
+mpc.Throttle.VALUE = initData[8,0]
+mpc.Yaw.VALUE = initData[9,0]
+mpc.Pitch.VALUE = initData[10,0]
 
 
 
@@ -53,7 +60,7 @@ _finalMask = np.zeros(mpc.time.size)
 _finalMask[-1] = 1
 finalMask = mpc.Param(_finalMask)
 
-# tCrash = mpc.Intermediate((mpc.vz + mpc.sqrt(mpc.vz**2 + 2*mpc.g*mpc.z)) / mpc.g)
+tCrash = mpc.Intermediate((mpc.vz + mpc.sqrt(mpc.vz**2 + 2*mpc.g*mpc.z)) / mpc.g)
 # xCrash = mpc.Intermediate(mpc.x + mpc.vx * tCrash)
 # yCrash = mpc.Intermediate(mpc.y + mpc.vy * tCrash)
 
@@ -61,14 +68,19 @@ mpc.Obj( (mpc.vz**2 + mpc.z**2) * finalMask  )
 mpc.Obj( (mpc.vx**2 + mpc.x**2) * finalMask  )
 mpc.Obj( (mpc.vy**2 + mpc.y**2) * finalMask  )
 
+# mpc.Obj( mpc.x**2 + mpc.y**2 )
+
+# mpc.Obj( xCrash**2 + yCrash**2 )
+
 # Maybe we'll dry a different objective that keeps the rocket on a ballistic trajectory towards the origin, instead of just the final point.
 
 mpc.options.RTOL = 1e0
 mpc.options.OTOL = 1e-2
 
-# mpc.options.COLDSTART = 1
+mpc.options.COLDSTART = 1
 
-# mpc.solve()
+mpc.solve()
+
 
 
 mpc.solve()
@@ -88,7 +100,7 @@ data = np.vstack((
   mpc.Throttle,
   mpc.Yaw,
   mpc.Pitch
-))
+)).transpose()
 
 top = '# Time (sec), X (m), Y (m), Z (m), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), Yaw (deg), Pitch (deg)'
 np.savetxt('offlineController output.csv', data, fmt='%.4f', delimiter=', ', header=top)

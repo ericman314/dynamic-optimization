@@ -6,28 +6,29 @@ import random
 import os.path
 
 
-def getModel():
+def getModel(name):
 
-  m = GEKKO()
-  m.options.NODES = 3
+  m = GEKKO(name=name)
+  m.options.NODES = 2
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
   # Constants
   g = m.Const(value=9.8)
   drymass = m.Const(value=27200)
 
-  m.Throttle = m.MV(value=1.0, lb=0.57, ub=1.0)
-  m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
-  m.propMass = m.Var(value=1000)
+  m.Throttle = m.MV(value=0.0, lb=0.0, ub=1.0)
+  # m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
+  m.EngineOn = m.Param(value=1)
+  m.Yaw = m.MV(value=0, lb=-45, ub=45)
+  m.Pitch = m.MV(value=0, lb=-45, ub=45)
+
+  m.propMass = m.CV(value=1000)
 
   m.f9ThrustSL = m.Const(7607000 / 9)     # N, per engine
   m.f9ThrustVac = m.Const(8227000 / 9)    # N, per engine
     
 
   Pi = m.Const(value=np.pi)
-
-  m.Yaw = m.MV(value=0, lb=-45, ub=45)
-  m.Pitch = m.MV(value=0, lb=-45, ub=45)
 
   # Position
   m.x = m.CV(value=0)

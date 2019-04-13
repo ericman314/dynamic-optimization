@@ -3,16 +3,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path
 
-initData = np.loadtxt('offlineController init.csv', delimiter=',').transpose()
-
 mpc = getModel(name='mpc-simple')
-mpc.time = np.linspace(0, 70, 36)
+mpc.time = np.linspace(0, 76, 39)
+
+initFilename = 'nrol-76'
+
+initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, initPropMass = \
+      np.loadtxt(os.path.join('initialConditions', initFilename + '.csv'), delimiter=',', unpack=True)
+
+mpc.x.VALUE = initX
+mpc.y.VALUE = initY
+mpc.z.VALUE = initZ
+mpc.vx.VALUE = initXdot
+mpc.vy.VALUE = initYdot
+mpc.vz.VALUE = initZdot
+mpc.propMass.VALUE = initPropMass
+mpc.Throttle.VALUE = 0
+mpc.Yaw.VALUE = initYaw
+mpc.Pitch.VALUE = initPitch
 
 
-_EngineOn = np.zeros(36)
-_EngineOn[22:] = 1
+
+
+_EngineOn = np.zeros(mpc.time.size)
+_EngineOn[21:] = 1
 mpc.EngineOn.VALUE = _EngineOn
 
+# This loads a previous complete solution so that it solves faster (but using COLDSTART breaks it maybe?)
+# TODO: Make this work better 
+# initData = np.loadtxt('offlineController init.csv', delimiter=',').transpose()
 # mpc.x.VALUE = initData[1,:]
 # mpc.y.VALUE = initData[2,:]
 # mpc.z.VALUE = initData[3,:]
@@ -25,16 +44,6 @@ mpc.EngineOn.VALUE = _EngineOn
 # mpc.Pitch.VALUE = initData[10,:]
 
 
-mpc.x.VALUE = initData[1,0]
-mpc.y.VALUE = initData[2,0]
-mpc.z.VALUE = initData[3,0]
-mpc.vx.VALUE = initData[4,0]
-mpc.vy.VALUE = initData[5,0]
-mpc.vz.VALUE = initData[6,0]
-mpc.propMass.VALUE = initData[7,0]
-mpc.Throttle.VALUE = initData[8,0]
-mpc.Yaw.VALUE = initData[9,0]
-mpc.Pitch.VALUE = initData[10,0]
 
 
 
@@ -87,7 +96,7 @@ mpc.solve()
 
 mpc.solve()
 
-mpc.solve()
+# mpc.solve()
 
 # Time (sec), X (m), Y (m), Z (m), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), Yaw (deg), Pitch (deg)
 data = np.vstack((

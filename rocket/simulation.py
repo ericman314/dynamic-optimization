@@ -24,17 +24,17 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-# initFilename = '40km-750mpsdown'
-initFilename = 'nrol-76'
+initFilename = '40km-5%prop-750mpsdown'
+# initFilename = 'nrol-76'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'yawStep'
+stepFilename = 'yawRamp'
 
 endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
 shouldRunController = False
-shouldRunStepTests = False
+shouldRunStepTests = True
 
 # Controller run interval (seconds)
 controllerRunInterval = 1
@@ -115,7 +115,7 @@ class MyApp(ShowBase):
     self.gridNegY = 0.0
     self.gridPosX = 0.0   # Degrees
     self.gridPosY = 0.0
-    self.mvYaw = 30
+    self.mvYaw = 0
     self.mvPitch = 0
 
     self.pidYawIntegral = 0
@@ -257,6 +257,8 @@ class MyApp(ShowBase):
     self.pltGeeAxial = np.zeros(0)
     self.pltGeeLateral = np.zeros(0)
     self.pltAOA = np.zeros(0)
+    self.pltMvYaw = np.zeros(0)
+    self.pltMvPitch = np.zeros(0)
     
     self.pltSaveInterval = 1.0    # seconds
     self.nextPltSaveTime = 0
@@ -287,8 +289,8 @@ class MyApp(ShowBase):
       # Time (sec), Throttle (0-1), EngineOn (0 or 1), Yaw (deg), Pitch (deg)
       self.mvThrottle = self.stepTests[i, 1]
       self.mvEngineOn = self.stepTests[i, 2]
-      self.mvYaw = self.sharedData['mvYaw']
-      self.mvPitch = self.sharedData['mvPitch']
+      self.mvYaw = self.stepTests[i, 3]
+      self.mvPitch = self.stepTests[i, 4]
       
 
     # Limit controller output
@@ -574,6 +576,8 @@ class MyApp(ShowBase):
       self.pltGeeAxial =   np.append(self.pltGeeAxial,   [geeAxial])
       self.pltGeeLateral = np.append(self.pltGeeLateral, [geeLateral])
       self.pltAOA =        np.append(self.pltAOA,        [AOA/math.pi*180])
+      self.pltMvYaw =      np.append(self.pltMvYaw,      [self.mvYaw])
+      self.pltMvPitch =      np.append(self.pltMvPitch,      [self.mvPitch])
 
 
     with self.lock:
@@ -653,22 +657,27 @@ class MyApp(ShowBase):
     fnData = os.path.join(dirName, outputFilename)
     print ('Writing data to ' + fnData)
 
-    data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA)).transpose()
-    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)'
+    data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA, self.pltMvYaw, self.pltMvPitch)).transpose()
+    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg), MvYaw (deg), MvPitch (deg)'
     np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top)
 
     print ('Generating a few interesting plots')
 
     plt.figure(figsize=(11,8))
-    plt.subplot(2, 1, 1)
+    plt.subplot(2, 2, 1)
     plt.plot(self.pltTime, self.pltX)
     plt.plot(self.pltTime, self.pltY)
     plt.plot(self.pltTime, self.pltZ)
-    plt.subplot(2, 1, 2)
+    plt.subplot(2, 2, 2)
     plt.plot(self.pltTime, self.pltXdot)
     plt.plot(self.pltTime, self.pltYdot)
     plt.plot(self.pltTime, self.pltZdot)
-    
+    plt.subplot(2, 2, 3)
+    plt.plot(self.pltTime, self.pltYaw)
+    plt.plot(self.pltTime, self.pltPitch)
+    plt.plot(self.pltTime, self.pltMvYaw)
+    plt.plot(self.pltTime, self.pltMvPitch)
+
     plt.show()
 
 

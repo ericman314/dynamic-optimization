@@ -8,7 +8,7 @@ import os.path
 
 def getModel(name):
 
-  m = GEKKO(name=name)
+  m = GEKKO(name=name, remote=False)
   m.options.NODES = 2
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 

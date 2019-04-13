@@ -24,11 +24,11 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-initFilename = '40km-5%prop-750mpsdown'
-# initFilename = 'nrol-76'
+# initFilename = '40km-5%prop-750mpsdown'
+initFilename = 'nrol-76'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'yawRamp'
+stepFilename = 'offlineController-output'
 
 endTime = 0    # Set to 0 to run until hitting the ground
 
@@ -563,7 +563,7 @@ class MyApp(ShowBase):
       self.pltZ =          np.append(self.pltZ,          [f9Pos.z])
       self.pltRoll =       np.append(self.pltRoll,       [f9Roll])
       self.pltYaw =        np.append(self.pltYaw,        [f9Yaw])
-      self.pltPitch =      np.append(self.pltPitch,      [-f9Pitch])
+      self.pltPitch =      np.append(self.pltPitch,      [f9Pitch])
       self.pltXdot =       np.append(self.pltXdot,       [f9Vel.x])
       self.pltYdot =       np.append(self.pltYdot,       [f9Vel.y])
       self.pltZdot =       np.append(self.pltZdot,       [f9Vel.z])

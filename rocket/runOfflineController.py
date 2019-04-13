@@ -1,6 +1,7 @@
 from model import getModel
 import numpy as np
 import matplotlib.pyplot as plt
+import os.path
 
 initData = np.loadtxt('offlineController init.csv', delimiter=',').transpose()
 
@@ -56,11 +57,12 @@ mpc.Pitch.STATUS = 1
 mpc.Yaw.DMAX = 1
 mpc.Pitch.DMAX = 1
 
+
 _finalMask = np.zeros(mpc.time.size)
 _finalMask[-1] = 1
 finalMask = mpc.Param(_finalMask)
 
-tCrash = mpc.Intermediate((mpc.vz + mpc.sqrt(mpc.vz**2 + 2*mpc.g*mpc.z)) / mpc.g)
+# tCrash = mpc.Intermediate((mpc.vz + mpc.sqrt(mpc.vz**2 + 2*mpc.g*mpc.z)) / mpc.g)
 # xCrash = mpc.Intermediate(mpc.x + mpc.vx * tCrash)
 # yCrash = mpc.Intermediate(mpc.y + mpc.vy * tCrash)
 
@@ -85,7 +87,7 @@ mpc.solve()
 
 mpc.solve()
 
-# mpc.solve()
+mpc.solve()
 
 # Time (sec), X (m), Y (m), Z (m), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), Yaw (deg), Pitch (deg)
 data = np.vstack((
@@ -104,6 +106,19 @@ data = np.vstack((
 
 top = '# Time (sec), X (m), Y (m), Z (m), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), Yaw (deg), Pitch (deg)'
 np.savetxt('offlineController output.csv', data, fmt='%.4f', delimiter=', ', header=top)
+
+
+mpc.EngineOn[-1] = 0
+stepTest = np.vstack((
+  mpc.time,
+  mpc.Throttle,
+  mpc.EngineOn,
+  mpc.Yaw,
+  mpc.Pitch
+)).transpose()
+
+top = '# Time (sec), Throttle (0-1), EngineOn(0, 1), Yaw (deg), Pitch (deg)'
+np.savetxt(os.path.join('stepTests', 'offlineController-output.csv'), stepTest, fmt='%.4f', delimiter=', ', header=top)
 
 
 plt.figure(figsize=(11,8))

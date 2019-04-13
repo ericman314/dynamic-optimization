@@ -5,10 +5,10 @@ class EstimatorController:
   def __init__(self):
     """Initialize the estimator (mhe) and controller (mpc)."""
 
-    self.mhe = getModel()
+    self.mhe = getModel(name='mhe')
     # Set mode, time horizon, tuning params, options, etc. for the MHE
 
-    self.mpc = getModel()
+    self.mpc = getModel(name='mpc')
     # Set mode, time horizon, tuning params, options, etc. for the MPC
 
   

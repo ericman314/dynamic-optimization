@@ -24,16 +24,16 @@ from math import pi, sin, cos
 
 
 # Filename to read initial conditions from (don't include the .csv)
-# initFilename = '500km-750mpsdown'
+# initFilename = '40km-750mpsdown'
 initFilename = 'nrol-76'
 
 # Filename to read step tests from (don't include the .csv)
-stepFilename = 'none'
+stepFilename = 'yawStep'
 
 endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
-shouldRunController = True
+shouldRunController = False
 shouldRunStepTests = False
 
 # Controller run interval (seconds)
@@ -104,17 +104,22 @@ class MyApp(ShowBase):
     self.f9GridFinAuthority = 10      # Some arbitrary number to say how much lift the grid fins produce (oh, just realized we never use this anywhere)
 
     # Simulation variables    
-    self.propLoad = 0.1 * self.f9PropMass    # Amount of full-tank propellent remaining
+    self.propMass = 0.1 * self.f9PropMass    # Amount of full-tank propellent remaining
     self.gimbalX = 0      # Degrees
     self.gimbalY = 0    # Degrees
-    self.throttle = 0.0  # Fraction between f9MinimumThrottle and 1.0
-    self.engineOn = 0
+    self.mvThrottle = 0.0  # Fraction between f9MinimumThrottle and 1.0
+    self.mvEngineOn = 0
     self.gridX = 0.0   # Degrees
     self.gridY = 0.0
     self.gridNegX = 0.0   # Degrees
     self.gridNegY = 0.0
     self.gridPosX = 0.0   # Degrees
     self.gridPosY = 0.0
+    self.mvYaw = 30
+    self.mvPitch = 0
+
+    self.pidYawIntegral = 0
+    self.pidPitchIntegral = 0
 
     # Make the rocket
     self.f9BodyNP = self.render.attachNewNode(BulletRigidBodyNode('RocketBody'))
@@ -128,11 +133,11 @@ class MyApp(ShowBase):
     
 
     # Set initial position/velocity
-    # X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg)
-    initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, self.propLoad = \
+    # X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg)
+    initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, self.propMass = \
       np.loadtxt(os.path.join('initialConditions', initFilename + '.csv'), delimiter=',', unpack=True)
 
-    self.f9BodyNP.node().setMass(self.f9BodyMass + self.propLoad)
+    self.f9BodyNP.node().setMass(self.f9BodyMass + self.propMass)
     self.f9BodyNP.setPos(initX, initY, initZ)
     self.f9BodyNP.setHpr(initRoll, -initPitch, initYaw)
     self.f9BodyNP.node().set_linear_velocity(LVector3f(initXdot, initYdot, initZdot))
@@ -218,7 +223,7 @@ class MyApp(ShowBase):
     # Create a shared data dictionary to pass data to and from the controller
     # Initialize the shared data with null (zero) outputs
     # Remember to use locks when accessing shared data
-    self.sharedData = { 'throttle': 0, 'gimbalX': 0, 'gimbalY': 0, 'gridX': 0, 'gridY': 0, 'engineOn': False }
+    self.sharedData = { 'mvThrottle': 0, 'mvYaw': 0, 'mvPitch': 0, 'mvEngineOn': False }
 
     # Lock for accessing shared data
     self.lock = threading.Lock()
@@ -227,6 +232,7 @@ class MyApp(ShowBase):
     self.f9VelLast = self.f9BodyNP.node().getLinearVelocity()
     quat = self.f9BodyNP.getTransform().getQuat()
     (f9Roll, f9Pitch, f9Yaw) = quat.getHpr()
+    f9Pitch = -f9Pitch
     self.f9RollLast = f9Roll
     self.f9PitchLast = f9Pitch
     self.f9YawLast = f9Yaw
@@ -268,33 +274,25 @@ class MyApp(ShowBase):
     if shouldRunController:
       with self.lock:
         # Read controller output from shared data
-        self.throttle = self.sharedData['throttle']
-        self.gimbalX = self.sharedData['gimbalX']
-        self.gimbalY = self.sharedData['gimbalY']
-        self.gridX = self.sharedData['gridX']
-        self.gridY = self.sharedData['gridY']
-        self.engineOn = self.sharedData['engineOn']
+        self.mvThrottle = self.sharedData['mvThrottle']
+        self.mvEngineOn = self.sharedData['mvEngineOn']
+        self.mvYaw = self.sharedData['mvYaw']
+        self.mvPitch = self.sharedData['mvPitch']
 
     if shouldRunStepTests:
       # Find the right time
       i = 0
       while i+1 < self.stepTests.shape[0] and self.stepTests[i+1][0] < task.time:
         i += 1
-      # Time (sec), Throttle (0-1), EngineOn (0 or 1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg)
-      self.throttle = self.stepTests[i, 1]
-      self.engineOn = self.stepTests[i, 2]
-      self.gimbalX = self.stepTests[i, 3]
-      self.gimbalY = self.stepTests[i, 4]
-      self.gridX = self.stepTests[i, 5]
-      self.gridY = self.stepTests[i, 6]
+      # Time (sec), Throttle (0-1), EngineOn (0 or 1), Yaw (deg), Pitch (deg)
+      self.mvThrottle = self.stepTests[i, 1]
+      self.mvEngineOn = self.stepTests[i, 2]
+      self.mvYaw = self.sharedData['mvYaw']
+      self.mvPitch = self.sharedData['mvPitch']
       
 
     # Limit controller output
-    self.throttle = max(min(self.throttle, 1.0), self.f9MinimumThrottle)
-    self.gimbalX = max(min(self.gimbalX, 7), -7)
-    self.gimbalY = max(min(self.gimbalY, 7), -7)
-    self.gridX = max(min(self.gridX, 30), -30)
-    self.gridY = max(min(self.gridY, 30), -30)
+    self.mvThrottle = max(min(self.mvThrottle, 1.0), self.f9MinimumThrottle)
 
     # Run Bullet simulation (where is globalClock defined? Well it works somehow...)
     dt = globalClock.getDt()
@@ -307,6 +305,7 @@ class MyApp(ShowBase):
 
     quat = self.f9BodyNP.getTransform().getQuat()
     (f9Roll, f9Pitch, f9Yaw) = quat.getHpr()
+    f9Pitch = -f9Pitch
     f9RollRate = (f9Roll - self.f9RollLast) / dt
     f9PitchRate = (f9Pitch - self.f9PitchLast) / dt
     f9YawRate = (f9Yaw - self.f9YawLast) / dt
@@ -329,16 +328,37 @@ class MyApp(ShowBase):
     
     # Simple roll controller
     rollAdjust = min(max(-f9RollRate - f9Roll * 0.3, -20), 20)
+
+    # Yaw and Pitch controllers
+    # Attitude is an integrating process. Perhaps a simple P-only control will be enough? Nah, we'll probably need D too. And probably I.
+    yawError = self.mvYaw - f9Yaw
+    self.pidYawIntegral += yawError * dt / 0.2
+    self.pidYawIntegral = min(max(self.pidYawIntegral, -10), 10)
+    self.gridX = -(yawError*5 + self.pidYawIntegral - f9YawRate*5)
+
+    pitchError = self.mvPitch - f9Pitch
+    self.pidPitchIntegral += pitchError * dt / 0.2
+    self.pidPitchIntegral = min(max(self.pidPitchIntegral, -10), 10)
+    self.gridY = -(pitchError*5 + self.pidPitchIntegral - f9PitchRate*5)
+
+
     self.gridXpos = -rollAdjust + self.gridX
     self.gridXneg = rollAdjust + self.gridX
     self.gridYpos = rollAdjust + self.gridY
     self.gridYneg = -rollAdjust + self.gridY
 
+    self.gridXpos = min(max(self.gridXpos, -30), 30)
+    self.gridXneg = min(max(self.gridXneg, -30), 30)
+    self.gridYpos = min(max(self.gridYpos, -30), 30)
+    self.gridYneg = min(max(self.gridYneg, -30), 30)
+
+    # TODO Engine gimbaling for controlling yaw and pitch when the rocket is slow    
+
 
     # Calculate forces on the rocket (these are all in local coordinates)
 
     # Calculate our own gravity so we can display a vector
-    fvGravWorld = Vec3(0, 0, -(self.f9BodyMass + self.propLoad) * g)
+    fvGravWorld = Vec3(0, 0, -(self.f9BodyMass + self.propMass) * g)
     fpGravWorld = Point3(0, 0, 0)
 
     atmosPress, atmosTemp, atmosRho = air_dens(f9Pos.z)
@@ -412,19 +432,19 @@ class MyApp(ShowBase):
     fvGridYposWorld = vLiftDirectionGridYpos * (math.sin(gridYposAOA*2) * 10 * dynPress) * gridFactor
     fvGridYnegWorld = vLiftDirectionGridYneg * (math.sin(gridYnegAOA*2) * 10 * dynPress) * gridFactor
 
-    if not self.engineOn:
-      self.throttle = 0
+    if not self.mvEngineOn:
+      self.mvThrottle = 0
 
     # Update mass (each engine consumes 300kg/s of propellent at 100% throttle)
-    self.propLoad -= 300 * dt * self.throttle
+    self.propMass -= 300 * dt * self.mvThrottle
     
-    if self.propLoad <= 0:
-      self.propLoad = 0
-      self.throttle = 0
+    if self.propMass <= 0:
+      self.propMass = 0
+      self.mvThrottle = 0
 
     # Thrust
 
-    thrust = self.throttle * (self.f9ThrustSL * atmosPress / 101325 + self.f9ThrustVac * (1 - atmosPress / 101325))
+    thrust = self.mvThrottle * (self.f9ThrustSL * atmosPress / 101325 + self.f9ThrustVac * (1 - atmosPress / 101325))
     fvThrustLocal = Vec3(0, 0, thrust)
     fpThrustLocal = Point3(0, 0, -self.f9COMoffset - self.f9Height * 0.5)
     quatGimbal = TransformState.makeHpr(Vec3(0, -self.gimbalY, self.gimbalX)).getQuat()
@@ -450,7 +470,7 @@ class MyApp(ShowBase):
 
 
 
-    self.f9BodyNP.node().setMass(self.f9BodyMass + self.propLoad)
+    self.f9BodyNP.node().setMass(self.f9BodyMass + self.propMass)
 
     # Draw force arrows (arguments to drawArrow2d are in world coordinates)
     forceArrowScale = 2e-5
@@ -510,12 +530,14 @@ class MyApp(ShowBase):
     osdText.append('Gee (axial): {:0.2f}'.format(geeAxial))
     osdText.append('Gee (lateral): {:0.2f}'.format(geeLateral))
     osdText.append('AOA (deg): {:.2f}'.format(AOA / math.pi * 180))
+    osdText.append('Yaw (deg): {:.1f}'.format(f9Yaw))
+    osdText.append('Pitch (deg): {:.1f}'.format(f9Pitch))
     osdText.append('Ambient pressure (kPa): {:.2f}'.format(atmosPress/1000))
     osdText.append('Dynamic pressure (kPa): {:.2f}'.format(dynPress/1000))
     osdText.append('')
-    osdText.append('Throttle (%): {:.0f}'.format(self.throttle * 100))
+    osdText.append('Throttle (%): {:.0f}'.format(self.mvThrottle * 100))
     osdText.append('Thrust (kN): {:.0f}'.format(thrust/1000))
-    osdText.append('Propellent (%): {:.1f}'.format(self.propLoad / self.f9PropMass * 100))
+    osdText.append('Propellent (%): {:.1f}'.format(self.propMass / self.f9PropMass * 100))
     osdText.append('Gimbal (deg): {:5.2f} x {:5.2f}'.format(self.gimbalX, self.gimbalY))
     osdText.append('Grid fins (deg): {:5.2f} x {:5.2f}'.format(self.gridX, self.gridY))
 
@@ -543,8 +565,8 @@ class MyApp(ShowBase):
       self.pltXdot =       np.append(self.pltXdot,       [f9Vel.x])
       self.pltYdot =       np.append(self.pltYdot,       [f9Vel.y])
       self.pltZdot =       np.append(self.pltZdot,       [f9Vel.z])
-      self.pltProp =       np.append(self.pltProp,       [self.propLoad])
-      self.pltThrottle =   np.append(self.pltThrottle,   [self.throttle])
+      self.pltProp =       np.append(self.pltProp,       [self.propMass])
+      self.pltThrottle =   np.append(self.pltThrottle,   [self.mvThrottle])
       self.pltGimbalX =    np.append(self.pltGimbalX,    [self.gimbalX])
       self.pltGimbalY =    np.append(self.pltGimbalY,    [self.gimbalY])
       self.pltGridX =      np.append(self.pltGridX,      [self.gridX])
@@ -560,9 +582,10 @@ class MyApp(ShowBase):
       self.sharedData['x'] = f9Pos.x
       self.sharedData['y'] = f9Pos.y
       self.sharedData['z'] = f9Pos.z
-      self.sharedData['yaw'] = f9Yaw
-      self.sharedData['pitch'] = f9Pitch
-      self.sharedData['prop'] = self.propLoad
+      self.sharedData['vx'] = f9Vel.x
+      self.sharedData['vy'] = f9Vel.y
+      self.sharedData['vz'] = f9Vel.z
+      self.sharedData['propMass'] = self.propMass
 
     # Position camera to look at rocket
     
@@ -581,17 +604,24 @@ class MyApp(ShowBase):
       x = self.sharedData['x']
       y = self.sharedData['y']
       z = self.sharedData['z']
-      yaw = self.sharedData['yaw']
-      pitch = self.sharedData['pitch']
-      prop = self.sharedData['prop']
+      vx = self.sharedData['vx']
+      vy = self.sharedData['vy']
+      vz = self.sharedData['vz']
+      propMass = self.sharedData['propMass']
 
     print ('Controller began at time', simTime)
 
     # Run estimator
-    self.controller.runMHE(simTime, x, y, z, yaw, pitch, prop)
+    # self.controller.runMHE(simTime, x, y, z, yaw, pitch, propMass)
 
     # Copy estimated variables to controller
-    self.controller.setMPCVars(self.controller.getMHEVars())
+    # mheVars = self.controller.getMHEVars()
+
+    mheVars = np.array([
+      x, y, z, vx, vy, vz, propMass
+    ])
+
+    self.controller.setMPCVars(mheVars)
 
     # Run controller
     MVs = self.controller.runMPC()
@@ -624,7 +654,7 @@ class MyApp(ShowBase):
     print ('Writing data to ' + fnData)
 
     data = np.vstack((self.pltTime, self.pltX, self.pltY, self.pltZ, self.pltRoll, self.pltYaw, self.pltPitch, self.pltXdot, self.pltYdot, self.pltZdot, self.pltProp, self.pltThrottle, self.pltGimbalX, self.pltGimbalY, self.pltGridX, self.pltGridY, self.pltGeeAxial, self.pltGeeLateral, self.pltAOA)).transpose()
-    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), Prop (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)'
+    top = 'Time (sec), X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg), Throttle (0-1), GimbalX (deg), GimbalY (deg), GridX (deg), GridY (deg), GeeAxial (g), GeeLateral (g), AOA (deg)'
     np.savetxt(fnData, data, fmt='%.2f', delimiter=', ', header=top)
 
     print ('Generating a few interesting plots')

@@ -26,7 +26,7 @@ mpc.Pitch.VALUE = initPitch
 
 
 _EngineOn = np.zeros(mpc.time.size)
-_EngineOn[21:] = 1
+_EngineOn[23:] = 1
 mpc.EngineOn.VALUE = _EngineOn
 
 # This loads a previous complete solution so that it solves faster (but using COLDSTART breaks it maybe?)
@@ -66,6 +66,10 @@ mpc.Pitch.STATUS = 1
 mpc.Yaw.DMAX = 1
 mpc.Pitch.DMAX = 1
 
+mpc.Yaw.DCOST = 0.1
+mpc.Pitch.DCOST = 0.1
+
+
 
 _finalMask = np.zeros(mpc.time.size)
 _finalMask[-1] = 1
@@ -75,9 +79,11 @@ finalMask = mpc.Param(_finalMask)
 # xCrash = mpc.Intermediate(mpc.x + mpc.vx * tCrash)
 # yCrash = mpc.Intermediate(mpc.y + mpc.vy * tCrash)
 
-mpc.Obj( (mpc.vz**2 + mpc.z**2) * finalMask  )
+mpc.Obj( (mpc.vz**2 + (mpc.z+170)**2) * finalMask  )
 mpc.Obj( (mpc.vx**2 + mpc.x**2) * finalMask  )
 mpc.Obj( (mpc.vy**2 + mpc.y**2) * finalMask  )
+
+mpc.Obj( mpc.Throttle**4 )
 
 # mpc.Obj( mpc.x**2 + mpc.y**2 )
 
@@ -85,7 +91,7 @@ mpc.Obj( (mpc.vy**2 + mpc.y**2) * finalMask  )
 
 # Maybe we'll dry a different objective that keeps the rocket on a ballistic trajectory towards the origin, instead of just the final point.
 
-mpc.options.RTOL = 1e0
+mpc.options.RTOL = 1e-1
 mpc.options.OTOL = 1e-2
 
 mpc.options.COLDSTART = 1

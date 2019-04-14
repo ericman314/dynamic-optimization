@@ -109,6 +109,8 @@ class MyApp(ShowBase):
     self.gimbalY = 0    # Degrees
     self.mvThrottle = 0.0  # Fraction between f9MinimumThrottle and 1.0
     self.mvEngineOn = 0
+    self.gridXsnap = 0
+    self.gridYsnap = 0
     self.gridX = 0.0   # Degrees
     self.gridY = 0.0
     self.gridNegX = 0.0   # Degrees
@@ -336,13 +338,24 @@ class MyApp(ShowBase):
     yawError = self.mvYaw - f9Yaw
     self.pidYawIntegral += yawError * dt / 0.2
     self.pidYawIntegral = min(max(self.pidYawIntegral, -10), 10)
-    self.gridX = -(yawError*5 + self.pidYawIntegral - f9YawRate*5)
+    self.gridXsnap = -(yawError*5 + self.pidYawIntegral - f9YawRate*5)
 
     pitchError = self.mvPitch - f9Pitch
     self.pidPitchIntegral += pitchError * dt / 0.2
     self.pidPitchIntegral = min(max(self.pidPitchIntegral, -10), 10)
-    self.gridY = -(pitchError*5 + self.pidPitchIntegral - f9PitchRate*5)
+    self.gridYsnap = -(pitchError*5 + self.pidPitchIntegral - f9PitchRate*5)
 
+    if self.gridXsnap > self.gridX:
+      self.gridX += min(self.gridXsnap - self.gridX, dt * 10)
+    if self.gridXsnap < self.gridX:
+      self.gridX -= min(-self.gridXsnap + self.gridX, dt * 10)
+
+      
+    if self.gridYsnap > self.gridY:
+      self.gridY += min(self.gridYsnap - self.gridY, dt * 10)
+    if self.gridYsnap < self.gridY:
+      self.gridY -= min(-self.gridYsnap + self.gridY, dt * 10)
+      
 
     self.gridXpos = -rollAdjust + self.gridX
     self.gridXneg = rollAdjust + self.gridX

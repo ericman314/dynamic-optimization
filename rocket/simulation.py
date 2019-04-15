@@ -277,7 +277,11 @@ class MyApp(ShowBase):
       # Get the MVs from the controller's output
       # The controller will have written an array of MVs to sharedData.
       # This function will interpolate between the outputs and set the MVs.
-      self.mvThrottle, self.mvEngineOn, self.mvYaw, self.mvPitch = self.retrieveControllerOutput(task.time)
+      try:
+        # If the controller has not run yet, the MVs will not change this frame.
+        self.mvThrottle, self.mvEngineOn, self.mvYaw, self.mvPitch = self.retrieveControllerOutput(task.time)
+      except Exception as ex:
+        print (ex)
         
     if shouldRunStepTests:
       # Find the right time
@@ -639,11 +643,15 @@ class MyApp(ShowBase):
     # Initialize MPC with current variables
     self.controller.setMPCVars(mheVars)
 
-    # Run controller
-    MVs = self.controller.runMPC()
+    # Run controller. If the controller fails, the old values will be kept.
+    try:
+      MVs = self.controller.runMPC()
     
-    # Save the controller output into the shared data
-    self.saveControllerOutput(simTime, MVs)
+      # Save the controller output into the shared data
+      self.saveControllerOutput(simTime, MVs)
+
+    except Exception as ex:
+      print (ex)
     
     # Run this task again immediately
     return Task.cont
@@ -692,7 +700,7 @@ class MyApp(ShowBase):
     """
 
     with self.lock:
-
+      # Overwrite previous values
       self.sharedData['mvTime'] = MVs[:,0] + simTime
       self.sharedData['mvThrottle'] = MVs[:,1]
       self.sharedData['mvEngineOn'] = MVs[:,2]

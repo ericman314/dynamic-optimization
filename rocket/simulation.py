@@ -33,11 +33,9 @@ stepFilename = 'offlineController-output'
 endTime = 0    # Set to 0 to run until hitting the ground
 
 # Specify whether we are running the controller or the step tests
-shouldRunController = False
-shouldRunStepTests = True
+shouldRunController = True
+shouldRunStepTests = False
 
-# Controller run interval (seconds)
-controllerRunInterval = 1
 # Disable individual forces (set to 0 to disable)
 dragFactor = 1
 liftFactor = 1
@@ -225,7 +223,7 @@ class MyApp(ShowBase):
     # Create a shared data dictionary to pass data to and from the controller
     # Initialize the shared data with null (zero) outputs
     # Remember to use locks when accessing shared data
-    self.sharedData = { 'mvThrottle': 0, 'mvYaw': 0, 'mvPitch': 0, 'mvEngineOn': False }
+    self.sharedData = { }
 
     # Lock for accessing shared data
     self.lock = threading.Lock()
@@ -276,13 +274,11 @@ class MyApp(ShowBase):
   def tick(self, task):
 
     if shouldRunController:
-      with self.lock:
-        # Read controller output from shared data
-        self.mvThrottle = self.sharedData['mvThrottle']
-        self.mvEngineOn = self.sharedData['mvEngineOn']
-        self.mvYaw = self.sharedData['mvYaw']
-        self.mvPitch = self.sharedData['mvPitch']
-
+      # Get the MVs from the controller's output
+      # The controller will have written an array of MVs to sharedData.
+      # This function will interpolate between the outputs and set the MVs.
+      self.mvThrottle, self.mvEngineOn, self.mvYaw, self.mvPitch = self.retrieveControllerOutput(task.time)
+        
     if shouldRunStepTests:
       # Find the right time
       i = 0
@@ -594,7 +590,8 @@ class MyApp(ShowBase):
 
 
     with self.lock:
-      # Write current telemetry to shared data
+      # Write current telemetry to shared data every frame
+      # This ensures that when the controller eventually runs, it will have the most up-to-date data.
       self.sharedData['time'] = task.time
       self.sharedData['x'] = f9Pos.x
       self.sharedData['y'] = f9Pos.y
@@ -621,44 +618,33 @@ class MyApp(ShowBase):
       x = self.sharedData['x']
       y = self.sharedData['y']
       z = self.sharedData['z']
-      vx = self.sharedData['vx']
-      vy = self.sharedData['vy']
-      vz = self.sharedData['vz']
+      vx = self.sharedData['vx']  # Temporary--these will eventually be estimated by the MHE
+      vy = self.sharedData['vy']  # Temporary--these will eventually be estimated by the MHE
+      vz = self.sharedData['vz']  # Temporary--these will eventually be estimated by the MHE
       propMass = self.sharedData['propMass']
 
     print ('Controller began at time', simTime)
 
-    # Run estimator
+    # TODO: Run estimator
     # self.controller.runMHE(simTime, x, y, z, yaw, pitch, propMass)
 
-    # Copy estimated variables to controller
+    # TODO: Obtain variables from estimator
     # mheVars = self.controller.getMHEVars()
 
+    # Temporary: Just read the exact variables from the simulation
     mheVars = np.array([
       x, y, z, vx, vy, vz, propMass
     ])
 
+    # Initialize MPC with current variables
     self.controller.setMPCVars(mheVars)
 
     # Run controller
     MVs = self.controller.runMPC()
     
-    # TODO: Uncomment next when runMPC actually returns something
-    # with self.lock:
-    #   self.sharedData['throttle'] = MVs[0][1]
-    #   self.sharedData['engineOn'] = MVs[0][2]
-    #   self.sharedData['gimbalX'] = MVs[0][3]
-    #   self.sharedData['gimbalY'] = MVs[0][4]
-    #   self.sharedData['gridX'] = MVs[0][5]
-    #   self.sharedData['gridY'] = MVs[0][6]
+    # Save the controller output into the shared data
+    self.saveControllerOutput(simTime, MVs)
     
-    print (self.sharedData)
-
-    # Pause until it is time to run again.
-    toSleep = startTime + 1 - time.time()
-    if toSleep > 0:
-      time.sleep(toSleep)
-
     # Run this task again immediately
     return Task.cont
 
@@ -693,7 +679,66 @@ class MyApp(ShowBase):
 
     plt.show()
 
+  def saveControllerOutput(self, simTime, MVs):
+    """ Saves output from the controller to the shared data, adjusting the times so they are aligned with the moment the controller began running.
 
+    Thread-safe.
+
+    Parameters
+    ----------
+    MVs : np.array
+      A NumPy array representing the optimal values of MVs over the time horizon considered by the MPC. The first axis represents the time relative to the current time, and the second axis are the various MVs, in this order: Time, Throttle, EngineOn, Yaw, Pitch.
+    
+    """
+
+    with self.lock:
+
+      self.sharedData['mvTime'] = MVs[:,0] + simTime
+      self.sharedData['mvThrottle'] = MVs[:,1]
+      self.sharedData['mvEngineOn'] = MVs[:,2]
+      self.sharedData['mvYaw'] = MVs[:,3]
+      self.sharedData['mvPitch'] = MVs[:,4]
+
+  def retrieveControllerOutput(self, time, interpolate=False):
+    """ Returns the MVs at the specified time.
+
+    Thread-safe.
+
+    Parameters
+    ----------
+    simTime : float
+      Specifies at which point in time to return the MVs.
+
+    interpolate=False : boolean
+      The default behavior is to hold each MV until the next timestep. If `interpolate` is true, this will linearly interpolate between timesteps, so that each MV is continuous. (The exception is EngineOn, which is a binary variable. It always follows the default behavior of False.)
+
+    Returns
+    -------
+    (Throttle, EngineOn, Yaw, Pitch) : tuple
+      The MVs at the specified point in time.
+
+    """
+
+    with self.lock:
+      times = self.sharedData['mvTime']
+      for i in range(times.size):
+        
+        if interpolate and i < times.size-1 and times[i] <= simTime < times[i+1]
+          # Interpolate
+          t = (time - times[i]) / (times[i+1] - times[i])
+          return ( self.sharedData['mvThrottle'][i] * t + self.sharedData['mvThrottle'][i+1] * (1-t),
+                   self.sharedData['mvEngineOn'][i],
+                   self.sharedData['mvYaw'][i] * t + self.sharedData['mvYaw'][i+1] * (1-t),
+                   self.sharedData['mvPitch'][i] * t + self.sharedDatPitch['mvThrottle'][i+1] * (1-t))
+
+        else if not interpolate and ( i == times.size-1 or times[i] <= simTime < times[i+1] ):
+          # Hold
+          return ( self.sharedData['mvThrottle'][i],
+                   self.sharedData['mvEngineOn'][i],
+                   self.sharedData['mvYaw'][i],
+                   self.sharedData['mvPitch'][i])
+
+    raise Exception('time not found')
 
 app = MyApp()
 app.run()

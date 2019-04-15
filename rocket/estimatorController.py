@@ -5,10 +5,10 @@ class EstimatorController:
   def __init__(self):
     """Initialize the estimator (mhe) and controller (mpc)."""
 
-    self.mhe = getModel()
+    self.mhe = getModel(name='mhe')
     # Set mode, time horizon, tuning params, options, etc. for the MHE
 
-    self.mpc = getModel()
+    self.mpc = getModel(name='mpc')
     # Set mode, time horizon, tuning params, options, etc. for the MPC
 
   
@@ -67,7 +67,7 @@ class EstimatorController:
     
     Returns
     -------
-    A NumPy array representing the optimal values of MVs over the time horizon considered by the MPC. The first axis represents the time relative to the current time, and the second axis are the various MVs, in this order: Time, Throttle, EngineOn, GimbalX, GimbalY, GridX, GridY.
+    A NumPy array representing the optimal values of MVs over the time horizon considered by the MPC. The first axis represents the time relative to the current time, and the second axis are the various MVs, in this order: Time, Throttle, EngineOn, Yaw, Pitch.
     """
 
     print( 'TODO: Run the MPC and return arrays of the MVs')

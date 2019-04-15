@@ -731,7 +731,7 @@ class MyApp(ShowBase):
       times = self.sharedData['mvTime']
       for i in range(times.size):
         
-        if interpolate and i < times.size-1 and times[i] <= simTime < times[i+1]
+        if interpolate and i < times.size-1 and times[i] <= simTime < times[i+1]:
           # Interpolate
           t = (time - times[i]) / (times[i+1] - times[i])
           return ( self.sharedData['mvThrottle'][i] * t + self.sharedData['mvThrottle'][i+1] * (1-t),
@@ -739,7 +739,7 @@ class MyApp(ShowBase):
                    self.sharedData['mvYaw'][i] * t + self.sharedData['mvYaw'][i+1] * (1-t),
                    self.sharedData['mvPitch'][i] * t + self.sharedDatPitch['mvThrottle'][i+1] * (1-t))
 
-        else if not interpolate and ( i == times.size-1 or times[i] <= simTime < times[i+1] ):
+        elif not interpolate and ( i == times.size-1 or times[i] <= simTime < times[i+1] ):
           # Hold
           return ( self.sharedData['mvThrottle'][i],
                    self.sharedData['mvEngineOn'][i],

@@ -17,8 +17,8 @@ def getModel(name):
   drymass = m.Const(value=27200)
 
   m.Throttle = m.MV(value=0.0, lb=0.57, ub=1.0)
-  # m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
-  m.EngineOn = m.Param(value=1)
+  m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
+  # m.EngineOn = m.Param(value=1)
   m.Yaw = m.MV(value=0, lb=-45, ub=45)
   m.Pitch = m.MV(value=0, lb=-45, ub=45)
 

@@ -46,26 +46,27 @@ mpc.EngineOn.VALUE = _EngineOn
 
 
 
-
+mpc.options.SOLVER = 1
 mpc.options.IMODE = 6
 mpc.options.MAX_ITER = 500
 
-mpc.x.FSTATUS = 1
-mpc.y.FSTATUS = 1
+# mpc.x.FSTATUS = 1
+# mpc.y.FSTATUS = 1
 mpc.z.FSTATUS = 1
-mpc.vx.FSTATUS = 1
-mpc.vy.FSTATUS = 1
+# mpc.vx.FSTATUS = 1
+# mpc.vy.FSTATUS = 1
 mpc.vz.FSTATUS = 1
 mpc.propMass.FSTATUS = 1
 
 
-# mpc.EngineOn.STATUS = 1
+mpc.EngineOn.STATUS = 1
 mpc.Throttle.STATUS = 1
 mpc.Yaw.STATUS = 1
 mpc.Pitch.STATUS = 1
 mpc.Yaw.DMAX = 1
 mpc.Pitch.DMAX = 1
 
+mpc.Throttle.DCOST = 0
 mpc.Yaw.DCOST = 0.1
 mpc.Pitch.DCOST = 0.1
 

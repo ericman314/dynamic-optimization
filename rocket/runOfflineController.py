@@ -50,11 +50,11 @@ mpc.options.SOLVER = 1
 mpc.options.IMODE = 6
 mpc.options.MAX_ITER = 500
 
-# mpc.x.FSTATUS = 1
-# mpc.y.FSTATUS = 1
+mpc.x.FSTATUS = 1
+mpc.y.FSTATUS = 1
 mpc.z.FSTATUS = 1
-# mpc.vx.FSTATUS = 1
-# mpc.vy.FSTATUS = 1
+mpc.vx.FSTATUS = 1
+mpc.vy.FSTATUS = 1
 mpc.vz.FSTATUS = 1
 mpc.propMass.FSTATUS = 1
 

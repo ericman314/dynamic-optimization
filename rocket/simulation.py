@@ -145,7 +145,7 @@ class MyApp(ShowBase):
     # Load step tests
     if shouldRunStepTests:
       self.stepTests = np.loadtxt(os.path.join('stepTests', stepFilename + '.csv'), delimiter=',')
-      print (self.stepTests)
+      print (148, self.stepTests)
 
 
     self.world.attachRigidBody(self.f9BodyNP.node())
@@ -279,9 +279,11 @@ class MyApp(ShowBase):
       # This function will interpolate between the outputs and set the MVs.
       try:
         # If the controller has not run yet, the MVs will not change this frame.
-        self.mvThrottle, self.mvEngineOn, self.mvYaw, self.mvPitch = self.retrieveControllerOutput(task.time)
+        self.mvThrottle, self.mvEngineOn, self.mvYaw, self.mvPitch = self.retrieveControllerOutput(task.time, True)
+      #  print (self.mvThrottle, self.mvEngineOn, self.mvYaw, self.mvPitch)
       except Exception as ex:
         print (ex)
+        
         
     if shouldRunStepTests:
       # Find the right time
@@ -294,6 +296,11 @@ class MyApp(ShowBase):
       self.mvYaw = self.stepTests[i, 3]
       self.mvPitch = self.stepTests[i, 4]
       
+    if self.hasLandedOrCrashed:
+      self.mvThrottle = 0
+      self.mvEngineOn = 0
+      self.mvYaw = 0
+      self.myPitch = 0
 
     # Limit controller output
     self.mvThrottle = max(min(self.mvThrottle, 1.0), self.f9MinimumThrottle)
@@ -345,16 +352,18 @@ class MyApp(ShowBase):
     self.pidPitchIntegral = min(max(self.pidPitchIntegral, -10), 10)
     self.gridYsnap = -(pitchError*5 + self.pidPitchIntegral - f9PitchRate*5)
 
+
+    gridFinActuationSpeed = 300
     if self.gridXsnap > self.gridX:
-      self.gridX += min(self.gridXsnap - self.gridX, dt * 10)
+      self.gridX += min(self.gridXsnap - self.gridX, dt * gridFinActuationSpeed)
     if self.gridXsnap < self.gridX:
-      self.gridX -= min(-self.gridXsnap + self.gridX, dt * 10)
+      self.gridX -= min(-self.gridXsnap + self.gridX, dt * gridFinActuationSpeed)
 
       
     if self.gridYsnap > self.gridY:
-      self.gridY += min(self.gridYsnap - self.gridY, dt * 10)
+      self.gridY += min(self.gridYsnap - self.gridY, dt * gridFinActuationSpeed)
     if self.gridYsnap < self.gridY:
-      self.gridY -= min(-self.gridYsnap + self.gridY, dt * 10)
+      self.gridY -= min(-self.gridYsnap + self.gridY, dt * gridFinActuationSpeed)
       
 
     self.gridXpos = -rollAdjust + self.gridX
@@ -447,7 +456,7 @@ class MyApp(ShowBase):
     fvGridYposWorld = vLiftDirectionGridYpos * (math.sin(gridYposAOA*2) * 10 * dynPress) * gridFactor
     fvGridYnegWorld = vLiftDirectionGridYneg * (math.sin(gridYnegAOA*2) * 10 * dynPress) * gridFactor
 
-    if not self.mvEngineOn:
+    if self.mvEngineOn == 0:
       self.mvThrottle = 0
 
     # Update mass (each engine consumes 300kg/s of propellent at 100% throttle)
@@ -614,6 +623,9 @@ class MyApp(ShowBase):
 
   # Runs on a separate thread
   def runController(self, task):
+
+    if self.hasLandedOrCrashed:
+      return
     
     startTime = time.time()
     
@@ -627,7 +639,6 @@ class MyApp(ShowBase):
       vz = self.sharedData['vz']  # Temporary--these will eventually be estimated by the MHE
       propMass = self.sharedData['propMass']
 
-    print ('Controller began at time', simTime)
 
     # TODO: Run estimator
     # self.controller.runMHE(simTime, x, y, z, yaw, pitch, propMass)
@@ -637,11 +648,18 @@ class MyApp(ShowBase):
 
     # Temporary: Just read the exact variables from the simulation
     mheVars = np.array([
-      x, y, z, vx, vy, vz, propMass
+      simTime, x, y, z, vx, vy, vz, propMass
     ])
 
+
+
     # Initialize MPC with current variables
-    self.controller.setMPCVars(mheVars)
+    try:
+      self.controller.setMPCVars(mheVars)
+    except ValueError:
+      return
+      
+    print ('Controller began at time', simTime)
 
     # Run controller. If the controller fails, the old values will be kept.
     try:
@@ -651,7 +669,7 @@ class MyApp(ShowBase):
       self.saveControllerOutput(simTime, MVs)
 
     except Exception as ex:
-      print (ex)
+      print (654, ex)
     
     # Run this task again immediately
     return Task.cont
@@ -701,11 +719,12 @@ class MyApp(ShowBase):
 
     with self.lock:
       # Overwrite previous values
-      self.sharedData['mvTime'] = MVs[:,0] + simTime
-      self.sharedData['mvThrottle'] = MVs[:,1]
-      self.sharedData['mvEngineOn'] = MVs[:,2]
-      self.sharedData['mvYaw'] = MVs[:,3]
-      self.sharedData['mvPitch'] = MVs[:,4]
+      self.sharedData['mvTime'] = MVs[0,:] + simTime
+      self.sharedData['mvThrottle'] = MVs[1,:]
+      self.sharedData['mvEngineOn'] = MVs[2,:]
+      self.sharedData['mvYaw'] = MVs[3,:]
+      self.sharedData['mvPitch'] = MVs[4,:]
+      # print (self.sharedData)
 
   def retrieveControllerOutput(self, time, interpolate=False):
     """ Returns the MVs at the specified time.
@@ -727,25 +746,33 @@ class MyApp(ShowBase):
 
     """
 
+
     with self.lock:
+
+      # If the controller has not solved yet, return zeroes.
+      if 'mvTime' not in self.sharedData:
+        return (0, 0, 0, 0)
+
       times = self.sharedData['mvTime']
       for i in range(times.size):
         
-        if interpolate and i < times.size-1 and times[i] <= simTime < times[i+1]:
+        if interpolate and i < times.size-1 and times[i] <= time < times[i+1]:
           # Interpolate
           t = (time - times[i]) / (times[i+1] - times[i])
           return ( self.sharedData['mvThrottle'][i] * t + self.sharedData['mvThrottle'][i+1] * (1-t),
                    self.sharedData['mvEngineOn'][i],
                    self.sharedData['mvYaw'][i] * t + self.sharedData['mvYaw'][i+1] * (1-t),
-                   self.sharedData['mvPitch'][i] * t + self.sharedDatPitch['mvThrottle'][i+1] * (1-t))
+                   self.sharedData['mvPitch'][i] * t + self.sharedData['mvPitch'][i+1] * (1-t))
 
-        elif not interpolate and ( i == times.size-1 or times[i] <= simTime < times[i+1] ):
+        elif not interpolate and ( i == times.size-1 or times[i] <= time < times[i+1] ):
           # Hold
+          # print ('Found correct time at i = ', i, ', t = ', times[i], ', current simtime = ', time)
           return ( self.sharedData['mvThrottle'][i],
                    self.sharedData['mvEngineOn'][i],
                    self.sharedData['mvYaw'][i],
                    self.sharedData['mvPitch'][i])
 
+    print ('time not found')
     raise Exception('time not found')
 
 app = MyApp()

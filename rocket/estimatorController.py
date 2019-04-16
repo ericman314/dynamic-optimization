@@ -89,8 +89,6 @@ class EstimatorController:
     # Ifactorempirical.FSTATUS = 1 # Receive new values from the estimator. Not yet
     m.liftAuthority.FSTATUS = 0 # Receive new values from the estimator. Not yet
     m.dragAuthority.FSTATUS = 0 # Receive new values from the estimator. Not yet
-    Ifactorempirical.FSTATUS = 0 # Receive new values from the estimator. Not yet
-
     ## Manipulated variables for controller
     m.Throttle.STATUS = 1 # Adjust for controller
     m.Throttle.FSTATUS = 0 # Do not receive measurements
@@ -126,7 +124,7 @@ class EstimatorController:
     m.solve()
 
     ## It's missing to communicate eith the estimator and pass values
-    
+
 
     """Runs the MPC, calculating and returning the values representing the optimal values of the manipulated variables.
     

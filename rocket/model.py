@@ -9,7 +9,7 @@ import os.path
 def getModel(name):
 
   m = GEKKO(name=name, remote=False)
-  m.options.NODES = 3
+  # m.options.NODES = 3
   # Do not set IMODE here, as the same model might be used for MPC and MHE
 
   # Constants
@@ -17,8 +17,8 @@ def getModel(name):
   drymass = m.Const(value=27200)
 
   m.Throttle = m.MV(value=0.0, lb=0.57, ub=1.0)
-  # m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
-  m.EngineOn = m.Param(value=1)
+  m.EngineOn = m.MV(value=0, lb=0, ub=1, integer=True)
+  # m.EngineOn = m.Param(value=1)
   m.Yaw = m.MV(value=0, lb=-45, ub=45)
   m.Pitch = m.MV(value=0, lb=-45, ub=45)
 
@@ -41,8 +41,8 @@ def getModel(name):
   m.vz = m.CV(value=0)
 
   # Adjustable parameters
-  m.liftAuthority = m.FV(250)
-  m.dragAuthority = m.FV(1.5)
+  m.liftAuthority = m.FV(value=250)
+  m.dragAuthority = m.FV(value=1.5)
   Ifactorempirical = m.FV(value=251.0)
 
   vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)

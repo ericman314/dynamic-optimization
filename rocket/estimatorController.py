@@ -1,5 +1,7 @@
 from model import getModel
-from time import sleep
+# from time import sleep
+import numpy as np
+import time
 
 class EstimatorController:
   def __init__(self):
@@ -10,6 +12,70 @@ class EstimatorController:
 
     self.mpc = getModel(name='mpc')
     # Set mode, time horizon, tuning params, options, etc. for the MPC
+
+
+    # stepTime = 5 # seconds per time step
+    m = self.mpc
+
+    # m.options.RTOL = 1e-3
+    # m.options.OTOL = 1e-3 
+
+      # Position
+    m.x.STATUS = 0
+    m.x.FSTATUS = 1  # Receive measurement from the simulation. Not yet!!
+
+    m.y.STATUS = 0
+    m.y.FSTATUS = 1  # Receive measurement from simulation. Not yet
+
+    # m.z.STATUS = 1
+    m.z.FSTATUS = 1  # Receive measurement from simulation. Not sure how to do it
+    # m.z.SP = 0.0 # setpoints could be updated fron the simluation data to change dynamically.
+    # m.z.TAU = 60 # time constant for position. Needs to be adjusted also.
+    # m.z.WSP = 100
+
+    # Velocity
+    m.vx.STATUS = 0
+    m.vy.STATUS = 0
+    m.vz.STATUS = 0  # 
+    m.vx.FSTATUS = 1
+    m.vy.FSTATUS = 1
+    m.vz.FSTATUS = 1  # Receive measurement from simulation
+    # m.vz.SP = 0.0 # setpoint for vz
+    # m.vz.TAU = 60 # time constant
+
+    # Adjustable parameters
+
+    # m.liftAuthority.FSTATUS = 1 # Receive new values from the estimator. Not yet
+    # m.dragAuthority.FSTATUS = 1 # Receive new values from the estimator. Not yet
+    # Ifactorempirical.FSTATUS = 1 # Receive new values from the estimator. Not yet
+    m.liftAuthority.FSTATUS = 0 # Receive new values from the estimator. Not yet
+    m.dragAuthority.FSTATUS = 0 # Receive new values from the estimator. Not yet
+    ## Manipulated variables for controller
+    m.Throttle.FSTATUS = 0 # Do not receive measurements
+    # m.EngineOn.STATUS = 1
+    m.EngineOn.FSTATUS = 0
+    m.Yaw.FSTATUS = 0
+    m.Pitch.FSTATUS = 0
+
+    m.Throttle.STATUS = 1 # Adjust for controller
+    # m.Yaw.STATUS = 1
+    # m.Pitch.STATUS = 1
+
+    m.options.CV_TYPE = 2
+    m.options.NODES = 2
+    m.options.SOLVER = 1
+    m.options.IMODE = 6
+    m.options.MAX_ITER = 500
+
+    # Since there's no estimator active yet, the estimated parameters will be the same
+    
+    # This will change each time the controller solves
+    m.finalMask = m.Param()
+
+    # m.Obj( (m.vx**2 + m.x**2) * m.finalMask  )
+    # m.Obj( (m.vy**2 + m.y**2) * m.finalMask  )
+    # m.Obj(m.x**2 + m.y**2)
+    m.Obj( (m.vz**2 + (m.z-25)**2) * m.finalMask  )
 
   
   def runMHE(self, time, x, y, z, yaw, pitch, prop):
@@ -51,18 +117,68 @@ class EstimatorController:
 
 
   def setMPCVars(self, v):
+    
     """Updates the MPC with current estimated variables.
 
     Parameters
     ----------
     v : array
-      An array containing these variables in this order: x, y, z, vx, vy, vz, θ_x, θ_y, w_x, w_y, and propMass
+      An array containing these variables in this order: simTime, x, y, z, vx, vy, vz, and propMass
     """
 
-    print(' TODO: Update the MPC with the given variables' )
+    simTime = v[0]
+
+    # Assume the rocket will land at t = 70 seconds.
+    timeHorizon = 78 - simTime # time horizon
+    if timeHorizon < 0:
+      raise ValueError("Controller is finished, gravity shall rule forever")
+    if timeHorizon < 35:
+      stepTime = 1
+    else:
+      stepTime = 2
+
+    nt = int(timeHorizon/stepTime)+1 #number of time points for each cycle
+
+    m = self.mpc
+    m.time = np.linspace(0,timeHorizon,nt)
+
+    # Initialize the MPC
+    m.x.VALUE = v[1]
+    m.y.VALUE = v[2]
+    m.z.VALUE = v[3]
+    m.vx.VALUE = v[4]
+    m.vy.VALUE = v[5]
+    m.vz.VALUE = v[6]
+    m.propMass.VALUE = v[7]
+
+    _finalMask = np.zeros(m.time.size)
+    _finalMask[-1] = 1
+    m.finalMask.VALUE = _finalMask
+
+    # Assume the engine turns on at t = 46 seconds
+    engineOnTime = 40
+    _engineOn = map(lambda x: 1 if x + simTime > engineOnTime else 0, m.time)
+    m.EngineOn.VALUE = np.array(list(_engineOn))
+
 
 
   def runMPC(self):
+    m=self.mpc
+    m.solve(disp=False)
+
+    print ('Controller objective: {:10.4f} Final position (x, y, z) (vx, vy, vz): ({:10.4f}, {:10.4f}, {:10.4f}) ({:10.4f}, {:10.4f}, {:10.4f})'.format(m.options.OBJFCNVAL, m.x.VALUE[-1], m.y.VALUE[-1], m.z.VALUE[-1], m.vx.VALUE[-1], m.vy.VALUE[-1], m.vz.VALUE[-1]))
+
+    retVal = np.array((
+      m.time,
+      m.Throttle,
+      m.EngineOn,
+      m.Yaw,
+      m.Pitch
+    ))
+
+    # print (retVal)
+    return retVal
+
     """Runs the MPC, calculating and returning the values representing the optimal values of the manipulated variables.
     
     Returns

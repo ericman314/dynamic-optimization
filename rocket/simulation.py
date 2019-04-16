@@ -86,7 +86,7 @@ class MyApp(ShowBase):
     self.groundNP = self.render.attachNewNode(BulletRigidBodyNode('Ground'))
     self.groundNP.setPos(0, 0, 0)
     self.groundNP.node().addShape(BulletPlaneShape(Vec3(0, 0, 1), 1))
-    self.groundNP.node().set_restitution(0.5)
+    self.groundNP.node().set_restitution(0.0)
 
     self.world.attachRigidBody(self.groundNP.node())
 
@@ -117,6 +117,8 @@ class MyApp(ShowBase):
     self.gridPosY = 0.0
     self.mvYaw = 0
     self.mvPitch = 0
+    self.mvYawSmooth = 0
+    self.mvPitchSmooth = 0
 
     self.pidYawIntegral = 0
     self.pidPitchIntegral = 0
@@ -164,9 +166,7 @@ class MyApp(ShowBase):
     self.f9BodyNP.node().set_angular_sleep_threshold(0)
     self.f9BodyNP.node().set_linear_damping(0)
     self.f9BodyNP.node().set_angular_damping(0)
-
-      # Make the rocket bounce off the ground for fun
-    self.f9BodyNP.node().set_restitution(0.5)
+    self.f9BodyNP.node().set_restitution(0.0)
 
 
 
@@ -270,6 +270,29 @@ class MyApp(ShowBase):
     # Initialize the mhe and mpc
     self.controller = EstimatorController()
 
+    if shouldRunController:
+      # Run the controller once
+      mheVars = np.array([
+        0, initX, initY, initZ, initXdot, initYdot, initZdot, self.propMass
+      ])
+
+      # Initialize MPC with current variables
+      self.controller.setMPCVars(mheVars)
+        
+        
+      print ('Initializing controller before running simulation')
+
+      # Run controller. If the controller fails, the old values will be kept.
+      try:
+        MVs = self.controller.runMPC(firstRun=True)
+      
+        # Save the controller output into the shared data
+        self.saveControllerOutput(0, MVs)
+
+      except Exception as ex:
+        print (295, ex)
+      
+
   # Perform the physics here
   def tick(self, task):
 
@@ -342,12 +365,14 @@ class MyApp(ShowBase):
 
     # Yaw and Pitch controllers
     # Attitude is an integrating process. Perhaps a simple P-only control will be enough? Nah, we'll probably need D too. And probably I.
-    yawError = self.mvYaw - f9Yaw
+    self.mvYawSmooth = self.mvYawSmooth * 0.99 + self.mvYaw * 0.01
+    self.mvPitchSmooth = self.mvPitchSmooth * 0.99 + self.mvPitch * 0.01
+    yawError = self.mvYawSmooth - f9Yaw
     self.pidYawIntegral += yawError * dt / 0.2
     self.pidYawIntegral = min(max(self.pidYawIntegral, -10), 10)
     self.gridXsnap = -(yawError*5 + self.pidYawIntegral - f9YawRate*5)
 
-    pitchError = self.mvPitch - f9Pitch
+    pitchError = self.mvPitchSmooth - f9Pitch
     self.pidPitchIntegral += pitchError * dt / 0.2
     self.pidPitchIntegral = min(max(self.pidPitchIntegral, -10), 10)
     self.gridYsnap = -(pitchError*5 + self.pidPitchIntegral - f9PitchRate*5)
@@ -567,7 +592,7 @@ class MyApp(ShowBase):
 
     self.npTelemetryFeed.setText('\n'.join(osdText))
 
-    if self.endTime == 0 and f9Pos.z + f9Vel.z * 0.1 < 20:
+    if self.endTime == 0 and (f9Pos.z + f9Vel.z * 0.1 < 20 or f9Vel.z > 0):
       print ('Rocket has landed or tipped over. Ending the simulation in 5 seconds.')
       self.hasLandedOrCrashed = True
       self.endTime = task.time + 5
@@ -577,7 +602,7 @@ class MyApp(ShowBase):
 
 
     # Save telemetry to arrays
-    if task.time > self.nextPltSaveTime and not self.hasLandedOrCrashed:
+    if task.time > self.nextPltSaveTime:
       self.nextPltSaveTime += self.pltSaveInterval
       self.pltTime =       np.append(self.pltTime,       [task.time])
       self.pltX =          np.append(self.pltX,          [f9Pos.x])

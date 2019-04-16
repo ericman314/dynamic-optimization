@@ -17,9 +17,6 @@ class EstimatorController:
     # stepTime = 5 # seconds per time step
     m = self.mpc
 
-    # m.options.RTOL = 1e-3
-    # m.options.OTOL = 1e-3 
-
       # Position
     m.x.STATUS = 0
     m.x.FSTATUS = 1  # Receive measurement from the simulation. Not yet!!
@@ -58,11 +55,11 @@ class EstimatorController:
     m.Pitch.FSTATUS = 0
 
     m.Throttle.STATUS = 1 # Adjust for controller
-    # m.Yaw.STATUS = 1
-    # m.Pitch.STATUS = 1
+    m.Yaw.STATUS = 1
+    m.Pitch.STATUS = 1
 
     m.options.CV_TYPE = 2
-    m.options.NODES = 2
+    m.options.NODES = 3
     m.options.SOLVER = 1
     m.options.IMODE = 6
     m.options.MAX_ITER = 500
@@ -72,11 +69,12 @@ class EstimatorController:
     # This will change each time the controller solves
     m.finalMask = m.Param()
 
-    # m.Obj( (m.vx**2 + m.x**2) * m.finalMask  )
-    # m.Obj( (m.vy**2 + m.y**2) * m.finalMask  )
+    m.Obj( (m.vx**2 + m.x**2) * m.finalMask  )
+    m.Obj( (m.vy**2 + m.y**2) * m.finalMask  )
     # m.Obj(m.x**2 + m.y**2)
-    m.Obj( (m.vz**2 + (m.z-25)**2) * m.finalMask  )
+    m.Obj( (m.vz**2 + (m.z-20)**2) * m.finalMask  )
 
+    
   
   def runMHE(self, time, x, y, z, yaw, pitch, prop):
     """Updates the estimator with current measured values from the physical process or simulation,
@@ -142,6 +140,13 @@ class EstimatorController:
     m = self.mpc
     m.time = np.linspace(0,timeHorizon,nt)
 
+    # If the rocket is close to the ground, disable Yaw and Pitch. We want it to land upright, and it's too late to make adjustments anyway.
+    if v[3] < 200:
+      m.Yaw.STATUS = 0
+      m.Pitch.STATUS = 0
+      m.Yaw.VALUE = 0
+      m.Pitch.VALUE = 0
+
     # Initialize the MPC
     m.x.VALUE = v[1]
     m.y.VALUE = v[2]
@@ -162,9 +167,29 @@ class EstimatorController:
 
 
 
-  def runMPC(self):
+  def runMPC(self, firstRun=False):
     m=self.mpc
-    m.solve(disp=False)
+
+    if firstRun:
+      m.options.MAX_TIME = 60
+
+      m.options.COLDSTART = 1
+
+      m.options.RTOL = 0.1
+      m.options.OTOL = 0.1
+
+      m.solve()
+
+
+    else:
+
+      m.options.MAX_TIME = 5
+      m.options.RTOL = 1e-3
+      m.options.OTOL = 1e-3
+
+    
+
+    m.solve(disp=firstRun)
 
     print ('Controller objective: {:10.4f} Final position (x, y, z) (vx, vy, vz): ({:10.4f}, {:10.4f}, {:10.4f}) ({:10.4f}, {:10.4f}, {:10.4f})'.format(m.options.OBJFCNVAL, m.x.VALUE[-1], m.y.VALUE[-1], m.z.VALUE[-1], m.vx.VALUE[-1], m.vy.VALUE[-1], m.vz.VALUE[-1]))
 

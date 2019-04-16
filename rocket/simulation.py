@@ -702,8 +702,6 @@ class MyApp(ShowBase):
     plt.xlabel('Time(s)')
     plt.plot(self.pltTime, self.pltGimbalX, label='GimbalX')
     plt.plot(self.pltTime, self.pltGimbalY, label='GimbalY')
-    plt.plot(self.pltTime, self.pltGimbalX, label='GimbalX (MV)')
-    plt.plot(self.pltTime, self.pltGimbalY, label='GimbalY (MV)')
     plt.legend(loc='best')
     plt.subplot(2, 3, 6)
     # plt.plot(self.pltTime, self.gridX, label='gridX')

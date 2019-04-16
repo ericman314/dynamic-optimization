@@ -725,6 +725,8 @@ class MyApp(ShowBase):
     # plt.plot(self.pltTime, self.gridX, label='gridX')
     # plt.plot(self.pltTime, self.gridY, label='gridY')
     plt.legend(loc='best')
+
+    plt.tight_layout()
     plt.show()
 
   def saveControllerOutput(self, simTime, MVs):

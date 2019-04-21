@@ -162,6 +162,7 @@ plt.plot(mpc.time, mpc.Yaw, 'r-', label='Yaw')
 plt.plot(mpc.time, mpc.Pitch, 'b-', label='Pitch')
 plt.legend()
 
+plt.tight_layout()
 plt.savefig('offlineController output.png')
 plt.show()
 

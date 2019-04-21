@@ -72,8 +72,12 @@ class EstimatorController:
     m.Obj( (m.vx**2 + m.x**2) * m.finalMask  )
     m.Obj( (m.vy**2 + m.y**2) * m.finalMask  )
     # m.Obj(m.x**2 + m.y**2)
-    m.Obj( (m.vz**2 + (m.z-20)**2) * m.finalMask  )
+    m.Obj( (m.vz**2 + (m.z-25)**2) * m.finalMask )
+    m.Obj( (m.sqrt(m.z**2)-m.z)**2 )
+    
 
+    self.hasAddedAdditionalZObjective = False
+    self.isInTerminalGuidance = False
     
   
   def runMHE(self, time, x, y, z, yaw, pitch, prop):
@@ -165,6 +169,16 @@ class EstimatorController:
     _engineOn = map(lambda x: 1 if x + simTime > engineOnTime else 0, m.time)
     m.EngineOn.VALUE = np.array(list(_engineOn))
 
+    # If close to the ground, increase the weight of the z objective term.
+    if simTime > 55 and not self.hasAddedAdditionalZObjective:
+      self.hasAddedAdditionalZObjective = True
+      m.Obj( (m.vz**2 * 100 + (m.z-25)**2 * 10) * m.finalMask)
+      
+    # If very close to the ground, just land it, don't try to hit the target
+    if simTime > 68 and not self.isInTerminalGuidance:
+      self.isInTerminalGuidance = True
+      # m.Obj( -(m.x**2) * m.finalMask  )
+      # m.Obj( -(m.y**2) * m.finalMask  )
 
 
   def runMPC(self, firstRun=False):
@@ -177,16 +191,15 @@ class EstimatorController:
 
       m.options.RTOL = 0.1
       m.options.OTOL = 0.1
+      
 
       m.solve()
 
 
     else:
-
       m.options.MAX_TIME = 5
       m.options.RTOL = 1e-3
       m.options.OTOL = 1e-3
-
     
 
     m.solve(disp=firstRun)

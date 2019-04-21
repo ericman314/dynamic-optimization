@@ -31,7 +31,7 @@ def getModel(name):
   Pi = m.Const(value=np.pi)
 
   # Wind
-  m.windx = m.FV(value=5)
+  m.windx = m.FV(value=0)
   m.windy = m.FV(value=0)
 
   # Position
@@ -45,7 +45,7 @@ def getModel(name):
   m.vz = m.CV(value=0)
 
   # Adjustable parameters
-  m.liftAuthority = m.FV(value=250)
+  m.liftAuthority = m.FV(value=240)
   m.dragAuthority = m.FV(value=1.5)
   Ifactorempirical = m.FV(value=251.0)
 

@@ -15,6 +15,7 @@ import math
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 import imagery
 import falcon
@@ -122,6 +123,9 @@ class MyApp(ShowBase):
 
     self.pidYawIntegral = 0
     self.pidPitchIntegral = 0
+
+    self.vWindAvg = Vec3(5, 0, 0)
+    self.vWind = self.vWindAvg
 
     # Make the rocket
     self.f9BodyNP = self.render.attachNewNode(BulletRigidBodyNode('RocketBody'))
@@ -401,8 +405,9 @@ class MyApp(ShowBase):
     self.gridYpos = min(max(self.gridYpos, -30), 30)
     self.gridYneg = min(max(self.gridYneg, -30), 30)
 
-    # TODO Engine gimbaling for controlling yaw and pitch when the rocket is slow    
-
+    # Engine gimbaling for controlling yaw and pitch that will work when the rocket is slow    
+    self.gimbalX = min(max(self.gridX, -7), 7)
+    self.gimbalY = min(max(self.gridY, -7), 7)
 
     # Calculate forces on the rocket (these are all in local coordinates)
 
@@ -415,7 +420,12 @@ class MyApp(ShowBase):
 
     # Calclate drag
     # Get relative air speed (TODO: Include wind)
-    vRelAir = -f9Vel
+    # Add wind
+    self.vWind = self.vWindAvg * 0.001 + self.vWind * 0.999 + Vec3((random.random() - 0.5) * 0.1, (random.random() - 0.5) * 0.1)
+
+    vRelAir = -f9Vel + self.vWind
+
+
     dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
 
     # Get angle of attack (deg)
@@ -639,9 +649,18 @@ class MyApp(ShowBase):
       self.sharedData['vz'] = f9Vel.z
       self.sharedData['propMass'] = self.propMass
 
+      # Also write historical data from the plt variables. This ensures the estimator will have historical data.
+      self.sharedData['histTime'] = np.append(self.pltTime[-3:-1], [task.time])
+      self.sharedData['histX'] = np.append(self.pltX[-3:-1], [f9Pos.x])
+      self.sharedData['histY'] = np.append(self.pltY[-3:-1], [f9Pos.y])
+      self.sharedData['histZ'] = np.append(self.pltZ[-3:-1], [f9Pos.z])
+      
+      
+
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(40, 30, 120))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(30, -80, 40))
+    self.camLens.setFov(75)
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again
@@ -659,17 +678,24 @@ class MyApp(ShowBase):
       x = self.sharedData['x']
       y = self.sharedData['y']
       z = self.sharedData['z']
-      vx = self.sharedData['vx']  # Temporary--these will eventually be estimated by the MHE
-      vy = self.sharedData['vy']  # Temporary--these will eventually be estimated by the MHE
-      vz = self.sharedData['vz']  # Temporary--these will eventually be estimated by the MHE
+      # vx = self.sharedData['vx']  # These are now estimated by the MHE
+      # vy = self.sharedData['vy']  # These are now estimated by the MHE
+      # vz = self.sharedData['vz']  # These are now estimated by the MHE
       propMass = self.sharedData['propMass']
+
+      histTime = self.sharedData['histTime']
+      histX = self.sharedData['histX']
+      histY = self.sharedData['histY']
+      histZ = self.sharedData['histZ']
 
 
     # TODO: Run estimator
-    # self.controller.runMHE(simTime, x, y, z, yaw, pitch, propMass)
+    # We need to pass in arrays of timestamped telemetry, like maybe the plt variables, plus the current values of the variables.
+    
+    self.controller.runMHE(histTime, histX, histY, histZ)
 
     # TODO: Obtain variables from estimator
-    # mheVars = self.controller.getMHEVars()
+    vx, vy, vz = self.controller.getMHEVars()
 
     # Temporary: Just read the exact variables from the simulation
     mheVars = np.array([

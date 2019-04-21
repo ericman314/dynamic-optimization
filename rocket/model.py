@@ -30,6 +30,10 @@ def getModel(name):
 
   Pi = m.Const(value=np.pi)
 
+  # Wind
+  m.windx = m.FV(value=5)
+  m.windy = m.FV(value=0)
+
   # Position
   m.x = m.CV(value=0)
   m.y = m.CV(value=0)
@@ -45,10 +49,10 @@ def getModel(name):
   m.dragAuthority = m.FV(value=1.5)
   Ifactorempirical = m.FV(value=251.0)
 
-  vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)
+  vRelAir2 = m.Intermediate((m.vx-m.windx)**2 + (m.vy-m.windy)**2 + m.vz**2)
   vRelAirMag = m.Intermediate( m.sqrt(vRelAir2) )
-  vRelAirNormx = m.Intermediate(m.vx / vRelAirMag)
-  vRelAirNormy = m.Intermediate(m.vy / vRelAirMag)
+  vRelAirNormx = m.Intermediate((m.vx-m.windx) / vRelAirMag)
+  vRelAirNormy = m.Intermediate((m.vy-m.windy) / vRelAirMag)
   vRelAirNormz = m.Intermediate(m.vz / vRelAirMag)
 
   # Atmospheric density and pressure
@@ -64,8 +68,8 @@ def getModel(name):
   # Force the rocket point in the direction of travel
   # Don't need a pointing torque anymore, because the Yaw and Pitch are MVs.
   # We still need the pointing error however, because from that we calculate the lift.
-  pointingErrorX = m.Intermediate(m.vx / m.sqrt(vRelAir2) + m.Yaw*np.pi/180)
-  pointingErrorY = m.Intermediate(m.vy / m.sqrt(vRelAir2) + m.Pitch*np.pi/180)
+  pointingErrorX = m.Intermediate((m.vx-m.windx) / m.sqrt(vRelAir2) + m.Yaw*np.pi/180)
+  pointingErrorY = m.Intermediate((m.vy-m.windy) / m.sqrt(vRelAir2) + m.Pitch*np.pi/180)
 
   # Rocket body should generate some lift if not pointing exactly correct
   Liftx = m.Intermediate(-pointingErrorX * m.liftAuthority * dynPress)

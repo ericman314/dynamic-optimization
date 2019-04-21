@@ -8,7 +8,69 @@ class EstimatorController:
     """Initialize the estimator (mhe) and controller (mpc)."""
 
     self.mhe = getModel(name='mhe')
+    #### Estimator shouldn't run at time 0, but run for the rest of the time steps required, starting at time = ???
+
+
     # Set mode, time horizon, tuning params, options, etc. for the MHE
+    # stepTime = 5 # seconds per time step
+    m = self.mhe
+
+    timeHorizon = 20
+    stepTime = 1
+    nt = int(timeHorizon/stepTime)+1 #number of time points for each cycle
+    m.time = np.linspace(0,timeHorizon,nt)    
+
+
+    ## CV tuning
+      # Position
+    m.x.STATUS = 0
+    m.x.FSTATUS = 1  # Receive measurement from the simulation. Not yet!!
+
+    m.y.STATUS = 0
+    m.y.FSTATUS = 1  # Receive measurement from simulation. Not yet
+
+    m.z.STATUS = 0
+    m.z.FSTATUS = 1  # Receive measurement from simulation. Not sure how to do it
+    
+    # Adjustable parameters (as FVs)
+    # Velocity
+    m.vx.STATUS = 0
+    m.vy.STATUS = 0
+    m.vz.STATUS = 0  # 
+    m.vx.FSTATUS = 0
+    m.vy.FSTATUS = 0
+    m.vz.FSTATUS = 0  # Don't receive measurement from simulation
+
+    # Propellant mass
+    m.propMass.STATUS = 0
+    m.propMass.FSTATUS = 0
+
+    m.liftAuthority.STATUS = 1 # Estimate
+    m.dragAuthority.STATUS = 1 # Estimate
+    # m.Ifactorempirical.STATUS = 1 # Estimate
+    
+    ## Manipulated variables for controller
+    m.Throttle.FSTATUS = 0 # Do not receive measurements
+    m.EngineOn.FSTATUS = 0
+    m.Yaw.FSTATUS = 0
+    m.Pitch.FSTATUS = 0
+
+    m.Throttle.STATUS = 0 # Don´t adjust for estimator
+    m.EngineOn.STATUS = 0
+    m.Yaw.STATUS = 0
+    m.Pitch.STATUS = 0
+
+    m.options.EV_TYPE = 2
+    m.options.NODES = 3
+    m.options.SOLVER = 1
+    m.options.IMODE = 5
+    m.options.MAX_ITER = 500
+
+    # Since there's no estimator active yet, the estimated parameters will be the same
+    
+    # This will change each time the ESTIMATOR? solves
+    m.finalMask = m.Param()
+
 
     self.mpc = getModel(name='mpc')
     # Set mode, time horizon, tuning params, options, etc. for the MPC
@@ -30,23 +92,25 @@ class EstimatorController:
     # m.z.TAU = 60 # time constant for position. Needs to be adjusted also.
     # m.z.WSP = 100
 
+    # Adjustable parameters
     # Velocity
     m.vx.STATUS = 0
     m.vy.STATUS = 0
     m.vz.STATUS = 0  # 
-    m.vx.FSTATUS = 1
-    m.vy.FSTATUS = 1
-    m.vz.FSTATUS = 1  # Receive measurement from simulation
+    m.vx.FSTATUS = 0
+    m.vy.FSTATUS = 0
+    m.vz.FSTATUS = 0  # Receive measurement from simulation
     # m.vz.SP = 0.0 # setpoint for vz
     # m.vz.TAU = 60 # time constant
 
-    # Adjustable parameters
+    # Propellant mass
+    m.propMass.FSTATUS = 0 # Receive new values from the estimator.
 
-    # m.liftAuthority.FSTATUS = 1 # Receive new values from the estimator. Not yet
-    # m.dragAuthority.FSTATUS = 1 # Receive new values from the estimator. Not yet
-    # Ifactorempirical.FSTATUS = 1 # Receive new values from the estimator. Not yet
-    m.liftAuthority.FSTATUS = 0 # Receive new values from the estimator. Not yet
-    m.dragAuthority.FSTATUS = 0 # Receive new values from the estimator. Not yet
+    # Other parameters
+    m.Ifactorempirical.FSTATUS = 1 # Receive new values from the estimator. Not sure yet
+    m.liftAuthority.FSTATUS = 1 # Receive new values from the estimator. Ready for it
+    m.dragAuthority.FSTATUS = 1 # Receive new values from the estimator. Ready fot it
+
     ## Manipulated variables for controller
     m.Throttle.FSTATUS = 0 # Do not receive measurements
     # m.EngineOn.STATUS = 1
@@ -77,6 +141,33 @@ class EstimatorController:
     
   
   def runMHE(self, time, x, y, z, yaw, pitch, prop):
+
+    m = self.mhe
+    simTime = v[0] # Is this necessary?
+
+    # Get measurements
+    ## Assign x, y, z values coming from the simulation (MEASURED VALUES, plt?), and initialize velocity values coming from simulation
+    xMEAS = v[1]
+    yMEAS = v[2]
+    zMEAS = v[3]
+    ## Not sure if the following are needed:
+    m.vx.VALUE = v[4]
+    m.vy.VALUE = v[5]
+    m.vz.VALUE = v[6]
+    m.propMass.VALUE = v[7]
+
+    ### Configuring MHE
+    ## Initial estimates(first solution) or previous values for parameters
+    m.x.MEAS = xMEAS
+    m.y.MEAS = yMEAS
+    m.z.MEAS = zMEAS
+
+    # Estimate parameters
+
+    # m.solve(disp=FALSE)
+    m.solve()
+
+
     """Updates the estimator with current measured values from the physical process or simulation,
     and runs the estimator to calculate certain unmeasured variables of the model. 
 
@@ -103,6 +194,19 @@ class EstimatorController:
 
 
   def getMHEVars(self):
+    if(self.mhe.options.APPSTATUS ==1):
+      m.Ifactorempirical.MEAS = self.mhe.Ifactorempirical.NEWVAL
+      m.liftAuthority.MEAS = self.mhe.liftAuthority.NEWVAL
+      m.dragAuthority.MEAS = self.mhe.dragAuthority.NEWVAL
+      pltIfac_MHE = self.mhe.Ifactorempirical.MODEL
+      pltLiftAut_MHE = self.mhe.liftAuthority.MODEL
+      pltDragAut_MHE = self.mhe.dragAuthority.MODEL
+    else:
+      print("MHE failed to solve. Parameters not updated")
+      pltIfac_MHE = np.nan
+      pltLiftAut_MHE = np.nan
+      pltDragAut_MHE = np.nan
+
     """Returns the estimated variables from the estimator.
 
     Returns
@@ -156,6 +260,8 @@ class EstimatorController:
     m.vz.VALUE = v[6]
     m.propMass.VALUE = v[7]
 
+
+
     _finalMask = np.zeros(m.time.size)
     _finalMask[-1] = 1
     m.finalMask.VALUE = _finalMask
@@ -191,15 +297,25 @@ class EstimatorController:
 
     m.solve(disp=firstRun)
 
-    print ('Controller objective: {:10.4f} Final position (x, y, z) (vx, vy, vz): ({:10.4f}, {:10.4f}, {:10.4f}) ({:10.4f}, {:10.4f}, {:10.4f})'.format(m.options.OBJFCNVAL, m.x.VALUE[-1], m.y.VALUE[-1], m.z.VALUE[-1], m.vx.VALUE[-1], m.vy.VALUE[-1], m.vz.VALUE[-1]))
+    if m.options.APPSTATUS==1:
+      print ('Controller objective: {:10.4f} Final position (x, y, z) (vx, vy, vz): ({:10.4f}, {:10.4f}, {:10.4f}) ({:10.4f}, {:10.4f}, {:10.4f})'.format(m.options.OBJFCNVAL, m.x.VALUE[-1], m.y.VALUE[-1], m.z.VALUE[-1], m.vx.VALUE[-1], m.vy.VALUE[-1], m.vz.VALUE[-1]))
 
-    retVal = np.array((
-      m.time,
-      m.Throttle,
-      m.EngineOn,
-      m.Yaw,
-      m.Pitch
-    ))
+      retVal = np.array((
+        m.time,
+        m.Throttle.NEWVAL,
+        m.EngineOn.NEWVAL,
+        m.Yaw.NEWVAL,
+        m.Pitch.NEWVAL
+      ))
+    else:
+      print("MPC failed to solve. Turning off vars")
+      retVal = np.array((
+        m.time,
+        0,
+        0,
+        0,
+        0
+      ))
 
     # print (retVal)
     return retVal

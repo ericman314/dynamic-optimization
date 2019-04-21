@@ -43,7 +43,7 @@ def getModel(name):
   # Adjustable parameters
   m.liftAuthority = m.FV(value=250)
   m.dragAuthority = m.FV(value=1.5)
-  Ifactorempirical = m.FV(value=251.0)
+  m.Ifactorempirical = m.FV(value=251.0)
 
   vRelAir2 = m.Intermediate(m.vx**2 + m.vy**2 + m.vz**2)
   vRelAirMag = m.Intermediate( m.sqrt(vRelAir2) )
@@ -58,7 +58,7 @@ def getModel(name):
 
   dynPress = m.Intermediate(0.5 * ρ * vRelAir2)
 
-  I_rocket = m.Intermediate( Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
+  I_rocket = m.Intermediate( m.Ifactorempirical*(m.propMass+drymass) )  # Moment of inertia
   
 
   # Force the rocket point in the direction of travel

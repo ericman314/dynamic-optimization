@@ -138,6 +138,43 @@ top = '# Time (sec), Throttle (0-1), EngineOn(0, 1), Yaw (deg), Pitch (deg)'
 np.savetxt(os.path.join('stepTests', 'offlineController-output.csv'), stepTest, fmt='%.4f', delimiter=', ', header=top)
 
 
+
+plt.figure(figsize=(11, 8))
+plt.rcParams.update({'font.size': 12})
+plt.subplot(2, 2, 1)
+plt.xlabel('Time(s)')
+plt.ylabel('Position (m)')
+plt.plot(mpc.time, mpc.x, label='X Position')
+plt.plot(mpc.time, mpc.y, label='Y Position')
+plt.plot(mpc.time, mpc.z, label='Altitude')
+plt.legend(loc='best')
+plt.subplot(2, 2, 2)
+plt.xlabel('Time(s)')
+plt.ylabel('Velocity (m/s)')
+plt.plot(mpc.time, mpc.vx, label='X Velocity')
+plt.plot(mpc.time, mpc.vy, label='Y Velocity')
+plt.plot(mpc.time, mpc.vz, label='Z Velocity')
+plt.legend(loc='best')
+plt.subplot(2, 2, 3)
+plt.xlabel('Time(s)')
+plt.ylabel('Degrees')
+plt.plot(mpc.time, mpc.Yaw, label='Yaw')
+plt.plot(mpc.time, mpc.Pitch, label='Pitch')
+# plt.plot(mpc.time, self.pltMvYaw, lable='Yaw (MV)')
+# plt.plot(mpc.time, self.pltMvPitch, label='Pitch (MV)')
+plt.legend(loc='best')
+plt.subplot(2, 2, 4)
+plt.xlabel('Time(s)')
+plt.plot(mpc.time, np.asarray(mpc.Throttle) * np.asarray(mpc.EngineOn), label='Throttle')
+plt.legend(loc='best')
+# plt.plot(mpc.time, self.mvThrottle, label='Throttle (MV)')
+
+plt.tight_layout()
+plt.show()
+
+
+
+
 plt.figure(figsize=(11,8))
 plt.subplot(2, 3, 1)
 plt.plot(mpc.time, mpc.z.value, label='z')

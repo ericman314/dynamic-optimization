@@ -15,6 +15,7 @@ import math
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 import imagery
 import falcon
@@ -122,6 +123,9 @@ class MyApp(ShowBase):
 
     self.pidYawIntegral = 0
     self.pidPitchIntegral = 0
+
+    self.vWindAvg = Vec3(0, 0, 0)
+    self.vWind = self.vWindAvg
 
     # Make the rocket
     self.f9BodyNP = self.render.attachNewNode(BulletRigidBodyNode('RocketBody'))
@@ -259,8 +263,22 @@ class MyApp(ShowBase):
     self.pltAOA = np.zeros(0)
     self.pltMvYaw = np.zeros(0)
     self.pltMvPitch = np.zeros(0)
+
+    self.pltEstTime = np.zeros(0)
+    self.pltEstX = np.zeros(0)
+    self.pltEstY = np.zeros(0)
+    self.pltEstZ = np.zeros(0)
+    self.pltEstVX = np.zeros(0)
+    self.pltEstVY = np.zeros(0)
+    self.pltEstVZ = np.zeros(0)
+    self.pltEstXExact = np.zeros(0)
+    self.pltEstYExact = np.zeros(0)
+    self.pltEstZExact = np.zeros(0)
+    self.pltEstVXExact = np.zeros(0)
+    self.pltEstVYExact = np.zeros(0)
+    self.pltEstVZExact = np.zeros(0)
     
-    self.pltSaveInterval = 1.0    # seconds
+    self.pltSaveInterval = 0.5    # seconds
     self.nextPltSaveTime = 0
 
     self.endTime = endTime    # 0 = five seconds after landing
@@ -401,8 +419,9 @@ class MyApp(ShowBase):
     self.gridYpos = min(max(self.gridYpos, -30), 30)
     self.gridYneg = min(max(self.gridYneg, -30), 30)
 
-    # TODO Engine gimbaling for controlling yaw and pitch when the rocket is slow    
-
+    # Engine gimbaling for controlling yaw and pitch that will work when the rocket is slow    
+    self.gimbalX = min(max(self.gridX, -7), 7)
+    self.gimbalY = min(max(self.gridY, -7), 7)
 
     # Calculate forces on the rocket (these are all in local coordinates)
 
@@ -415,7 +434,12 @@ class MyApp(ShowBase):
 
     # Calclate drag
     # Get relative air speed (TODO: Include wind)
-    vRelAir = -f9Vel
+    # Add wind
+    self.vWind = self.vWindAvg * 0.001 + self.vWind * 0.999 + Vec3((random.random() - 0.5) * 0.1, (random.random() - 0.5) * 0.1)
+
+    vRelAir = -f9Vel + self.vWind
+
+
     dynPress = 0.5 * atmosRho * dot(vRelAir, vRelAir)
 
     # Get angle of attack (deg)
@@ -639,9 +663,25 @@ class MyApp(ShowBase):
       self.sharedData['vz'] = f9Vel.z
       self.sharedData['propMass'] = self.propMass
 
+      # Also write historical data from the plt variables. This ensures the estimator will have historical data.
+      # Include current time
+      # self.sharedData['histTime'] = np.append(self.pltTime[-4:-1], [task.time])
+      # self.sharedData['histX'] = np.append(self.pltX[-4:-1], [f9Pos.x])
+      # self.sharedData['histY'] = np.append(self.pltY[-4:-1], [f9Pos.y])
+      # self.sharedData['histZ'] = np.append(self.pltZ[-4:-1], [f9Pos.z])
+
+      # Don't include current time
+      self.sharedData['histTime'] = self.pltTime[-6:-1]
+      self.sharedData['histX'] = self.pltX[-6:-1]
+      self.sharedData['histY'] = self.pltY[-6:-1]
+      self.sharedData['histZ'] = self.pltZ[-6:-1]
+      
+      
+
     # Position camera to look at rocket
     
-    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(40, 30, 120))
+    self.camera.setPos(self.f9BodyNP.getPos() + Vec3(30, -80, 40))
+    self.camLens.setFov(75)
     self.camera.lookAt(self.f9BodyNP)
     
     return Task.cont    # Execute the task again
@@ -656,26 +696,62 @@ class MyApp(ShowBase):
     
     with self.lock:
       simTime = self.sharedData['time']
-      x = self.sharedData['x']
-      y = self.sharedData['y']
-      z = self.sharedData['z']
-      vx = self.sharedData['vx']  # Temporary--these will eventually be estimated by the MHE
-      vy = self.sharedData['vy']  # Temporary--these will eventually be estimated by the MHE
-      vz = self.sharedData['vz']  # Temporary--these will eventually be estimated by the MHE
+      xExact = self.sharedData['x']
+      yExact = self.sharedData['y']
+      zExact = self.sharedData['z']
+      vxExact = self.sharedData['vx']  # These are now estimated
+      vyExact = self.sharedData['vy']  # These are now estimated
+      vzExact = self.sharedData['vz']  # These are now estimated
       propMass = self.sharedData['propMass']
 
+      histTime = self.sharedData['histTime']
+      histX = self.sharedData['histX']
+      histY = self.sharedData['histY']
+      histZ = self.sharedData['histZ']
 
-    # TODO: Run estimator
-    # self.controller.runMHE(simTime, x, y, z, yaw, pitch, propMass)
 
-    # TODO: Obtain variables from estimator
-    # mheVars = self.controller.getMHEVars()
+    # We must have at least 3 points to estimate velocity
+    if histTime.size < 3:
+      return Task.cont
+
+    # Estimate current position and velocity by fitting a quadratic to the historical position data
+
+    xCoeffs = np.polyfit(histTime, histX, 2)
+    yCoeffs = np.polyfit(histTime, histY, 2)
+    zCoeffs = np.polyfit(histTime, histZ, 2)
+
+    x = xCoeffs[2] + xCoeffs[1] * simTime + xCoeffs[0]*simTime**2
+    y = yCoeffs[2] + yCoeffs[1] * simTime + yCoeffs[0]*simTime**2
+    z = zCoeffs[2] + zCoeffs[1] * simTime + zCoeffs[0]*simTime**2
+
+    vx = xCoeffs[1] + 2 * xCoeffs[0] * simTime
+    vy = yCoeffs[1] + 2 * yCoeffs[0] * simTime
+    vz = zCoeffs[1] + 2 * zCoeffs[0] * simTime
+
+    print (xExact, yExact, zExact, vxExact, vyExact, vzExact)
+    print (x, y, z, vx, vy, vz)
 
     # Temporary: Just read the exact variables from the simulation
     mheVars = np.array([
       simTime, x, y, z, vx, vy, vz, propMass
     ])
 
+
+    # Save estimated telemetry for the report
+    self.pltEstTime = np.append(self.pltEstTime, [simTime])
+    self.pltEstX    = np.append(self.pltEstX,    [x])
+    self.pltEstY    = np.append(self.pltEstY,    [y])
+    self.pltEstZ    = np.append(self.pltEstZ,    [z])
+    self.pltEstVX   = np.append(self.pltEstVX,   [vx])
+    self.pltEstVY   = np.append(self.pltEstVY,   [vy])
+    self.pltEstVZ   = np.append(self.pltEstVZ,   [vz])
+    self.pltEstXExact    = np.append(self.pltEstXExact,    [xExact])
+    self.pltEstYExact    = np.append(self.pltEstYExact,    [yExact])
+    self.pltEstZExact    = np.append(self.pltEstZExact,    [zExact])
+    self.pltEstVXExact   = np.append(self.pltEstVXExact,   [vxExact])
+    self.pltEstVYExact   = np.append(self.pltEstVYExact,   [vyExact])
+    self.pltEstVZExact   = np.append(self.pltEstVZExact,   [vzExact])
+  
 
 
     # Initialize MPC with current variables
@@ -742,6 +818,48 @@ class MyApp(ShowBase):
     plt.legend(loc='best')
     # plt.plot(self.pltTime, self.mvThrottle, label='Throttle (MV)')
 
+    plt.tight_layout()
+    plt.show()
+
+
+    plt.figure(figsize=(11, 8))
+    plt.subplot(2, 2, 1)
+    plt.ylabel('Position (m)')
+    plt.plot(self.pltTime, self.pltX, 'r-', label='X')
+    plt.plot(self.pltTime, self.pltY, 'g-', label='Y')
+    plt.plot(self.pltTime, self.pltZ, 'b-', label='Z')
+    plt.plot(self.pltEstTime, self.pltEstX, 'ro')
+    plt.plot(self.pltEstTime, self.pltEstY, 'go')
+    plt.plot(self.pltEstTime, self.pltEstZ, 'bo')
+    plt.legend(loc='best')
+    plt.subplot(2, 2, 2)
+    plt.ylabel('Velocity (m/s)')
+    plt.plot(self.pltTime, self.pltXdot, 'r-', label='Vx')
+    plt.plot(self.pltTime, self.pltYdot, 'g-', label='Vy')
+    plt.plot(self.pltTime, self.pltZdot, 'b-', label='Vz')
+    plt.plot(self.pltEstTime, self.pltEstVX, 'ro')
+    plt.plot(self.pltEstTime, self.pltEstVY, 'go')
+    plt.plot(self.pltEstTime, self.pltEstVZ, 'bo')
+    plt.legend(loc='best')
+    
+    plt.subplot(2, 2, 3)
+    plt.xlabel('Time(s)')
+    plt.ylabel('Error (m)')
+    plt.plot(self.pltEstTime, self.pltEstX - self.pltEstXExact, 'ro')
+    plt.plot(self.pltEstTime, self.pltEstY - self.pltEstYExact, 'go')
+    plt.plot(self.pltEstTime, self.pltEstZ - self.pltEstZExact, 'bo')
+    plt.legend(loc='best')
+    plt.subplot(2, 2, 4)
+    plt.xlabel('Time(s)')
+    plt.ylabel('Error (m/s)')
+    plt.plot(self.pltEstTime, self.pltEstVX - self.pltEstVXExact, 'ro')
+    plt.plot(self.pltEstTime, self.pltEstVY - self.pltEstVYExact, 'go')
+    plt.plot(self.pltEstTime, self.pltEstVZ - self.pltEstVZExact, 'bo')
+    
+    
+
+    plt.legend(loc='best')
+   
     plt.tight_layout()
     plt.show()
 

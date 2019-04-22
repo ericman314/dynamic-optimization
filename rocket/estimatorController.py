@@ -15,11 +15,10 @@ class EstimatorController:
     # stepTime = 5 # seconds per time step
     m = self.mhe
 
-    timeHorizon = 20
+    m.timeHorizon = 15
     stepTime = 1
-    nt = int(timeHorizon/stepTime)+1 #number of time points for each cycle
-    m.time = np.linspace(0,timeHorizon,nt)    
-
+    nt = int(m.timeHorizon/stepTime)+1 #number of time points for each cycle
+    m.time = np.linspace(0,m.timeHorizon,nt)
 
     ## CV tuning
       # Position
@@ -45,9 +44,9 @@ class EstimatorController:
     m.propMass.STATUS = 0
     m.propMass.FSTATUS = 0
 
-    m.liftAuthority.STATUS = 1 # Estimate
+    m.liftAuthority.STATUS = 0 # Estimate
     m.dragAuthority.STATUS = 1 # Estimate
-    # m.Ifactorempirical.STATUS = 1 # Estimate
+    m.Ifactorempirical.STATUS = 0 # Estimate
     
     ## Manipulated variables for controller
     m.Throttle.FSTATUS = 0 # Do not receive measurements
@@ -140,32 +139,35 @@ class EstimatorController:
 
     
   
-  def runMHE(self, time, x, y, z, yaw, pitch, prop):
+  def runMHE(self, simTime, x, y, z, liftAuthority, dragAuthority, Ifactorempirical):
 
     m = self.mhe
-    simTime = v[0] # Is this necessary?
 
-    # Get measurements
-    ## Assign x, y, z values coming from the simulation (MEASURED VALUES, plt?), and initialize velocity values coming from simulation
-    xMEAS = v[1]
-    yMEAS = v[2]
-    zMEAS = v[3]
-    ## Not sure if the following are needed:
-    m.vx.VALUE = v[4]
-    m.vy.VALUE = v[5]
-    m.vz.VALUE = v[6]
-    m.propMass.VALUE = v[7]
+    # simTime = time # Is this necessary?
 
-    ### Configuring MHE
-    ## Initial estimates(first solution) or previous values for parameters
-    m.x.MEAS = xMEAS
-    m.y.MEAS = yMEAS
-    m.z.MEAS = zMEAS
+    if(simTime>=m.timeHorizon):
 
-    # Estimate parameters
 
-    # m.solve(disp=FALSE)
-    m.solve()
+      # Get measurements
+      ## Assign x, y, z values coming from the simulation (MEASURED VALUES, plt?), and initialize velocity values coming from simulation
+      xMEAS = x
+      yMEAS = y
+      zMEAS = z
+      ## Not sure if the following are needed:
+      m.Ifactorempirical.VALUE = liftAuthority
+      m.liftAuthority.VALUE = dragAuthority
+      m.dragAuthority.VALUE = Ifactorempirical
+
+      ### Configuring MHE
+      ## Initial estimates(first solution) or previous values for parameters
+      m.x.MEAS = xMEAS
+      m.y.MEAS = yMEAS
+      m.z.MEAS = zMEAS
+
+      # Estimate parameters
+
+      # m.solve(disp=FALSE)
+      m.solve()
 
 
     """Updates the estimator with current measured values from the physical process or simulation,
@@ -195,17 +197,26 @@ class EstimatorController:
 
   def getMHEVars(self):
     if(self.mhe.options.APPSTATUS ==1):
-      m.Ifactorempirical.MEAS = self.mhe.Ifactorempirical.NEWVAL
-      m.liftAuthority.MEAS = self.mhe.liftAuthority.NEWVAL
-      m.dragAuthority.MEAS = self.mhe.dragAuthority.NEWVAL
-      pltIfac_MHE = self.mhe.Ifactorempirical.MODEL
-      pltLiftAut_MHE = self.mhe.liftAuthority.MODEL
-      pltDragAut_MHE = self.mhe.dragAuthority.MODEL
+      Ifactorempirical_MHE = self.mhe.Ifactorempirical.NEWVAL
+      liftAuthority_MHE  = self.mhe.liftAuthority.NEWVAL
+      dragAuthority_MHE = self.mhe.dragAuthority.NEWVAL
+      self.mpc.liftAuthority.MEAS = liftAuthority_MHE
+      self.mpc.dragAuthority.MEAS = dragAuthority_MHE 
+      self.mpc.Ifactorempirical.MEAS = liftAuthority_MHE
+      x_MHE = self.mhe.x.MODEL
+      y_MHE = self.mhe.y.MODEL
+      z_MHE = self.mhe.z.MODEL
     else:
       print("MHE failed to solve. Parameters not updated")
-      pltIfac_MHE = np.nan
-      pltLiftAut_MHE = np.nan
-      pltDragAut_MHE = np.nan
+      x_MHE = np.nan
+      y_MHE = np.nan
+      z_MHE = np.nan
+
+    mheVars = np.array([
+      liftAuthority_MHE,dragAuthority_MHE,Ifactorempirical_MHE
+      ])
+
+    return mheVars
 
     """Returns the estimated variables from the estimator.
 
@@ -218,7 +229,7 @@ class EstimatorController:
     print( 'TODO: Return the estimated variables from the mhe' )
 
 
-  def setMPCVars(self, v):
+  def setMPCVars(self, mheVars, mpcVars):
     
     """Updates the MPC with current estimated variables.
 
@@ -227,6 +238,7 @@ class EstimatorController:
     v : array
       An array containing these variables in this order: simTime, x, y, z, vx, vy, vz, and propMass
     """
+    v = mpcVars
 
     simTime = v[0]
 
@@ -277,15 +289,14 @@ class EstimatorController:
     m=self.mpc
 
     if firstRun:
-      m.options.MAX_TIME = 60
+      # m.options.MAX_TIME = 60
 
       m.options.COLDSTART = 1
 
       m.options.RTOL = 0.1
       m.options.OTOL = 0.1
 
-      m.solve()
-
+      m.solve(disp=False)
 
     else:
 

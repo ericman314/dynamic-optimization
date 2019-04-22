@@ -138,6 +138,10 @@ class MyApp(ShowBase):
     # X (m), Y (m), Z (m), Roll (deg), Yaw (deg), Pitch (deg), Xdot (m/s), Ydot (m/s), Zdot (m/s), PropMass (kg)
     initX, initY, initZ, initRoll, initYaw, initPitch, initXdot, initYdot, initZdot, self.propMass = \
       np.loadtxt(os.path.join('initialConditions', initFilename + '.csv'), delimiter=',', unpack=True)
+    initLiftAuthority = 250.0
+    initDragAuthority = 1.5
+    initIfactorempirical = 251.0
+
 
     self.f9BodyNP.node().setMass(self.f9BodyMass + self.propMass)
     self.f9BodyNP.setPos(initX, initY, initZ)
@@ -273,11 +277,14 @@ class MyApp(ShowBase):
     if shouldRunController:
       # Run the controller once
       mheVars = np.array([
+        initLiftAuthority, initDragAuthority, initIfactorempirical
+        ])
+      mpcVars = np.array([
         0, initX, initY, initZ, initXdot, initYdot, initZdot, self.propMass
-      ])
+        ])
 
       # Initialize MPC with current variables
-      self.controller.setMPCVars(mheVars)
+      self.controller.setMPCVars(mheVars,mpcVars)
         
         
       print ('Initializing controller before running simulation')
@@ -639,6 +646,11 @@ class MyApp(ShowBase):
       self.sharedData['vz'] = f9Vel.z
       self.sharedData['propMass'] = self.propMass
 
+      if(self.controller.mhe.options.APPSTATUS == 1):
+        self.sharedData['liftAuthority'] = self.controller.mhe.liftAuthority.NEWVAL
+        self.sharedData['dragAuthority'] = self.controller.mhe.dragAuthority.NEWVAL
+        self.sharedData['Ifactorempirical'] = self.controller.mhe.Ifactorempirical.NEWVAL
+
     # Position camera to look at rocket
     
     self.camera.setPos(self.f9BodyNP.getPos() + Vec3(40, 30, 120))
@@ -663,16 +675,26 @@ class MyApp(ShowBase):
       vy = self.sharedData['vy']  # Temporary--these will eventually be estimated by the MHE
       vz = self.sharedData['vz']  # Temporary--these will eventually be estimated by the MHE
       propMass = self.sharedData['propMass']
+      liftAuthority = self.sharedData['liftAuthority']
+      dragAuthority = self.sharedData['dragAuthority']
+      Ifactorempirical = self.sharedData['Ifactorempirical']
 
 
     # TODO: Run estimator
-    # self.controller.runMHE(simTime, x, y, z, yaw, pitch, propMass)
-
+    try:
+        self.controller.runMHE(simTime, x, y, z, liftAuthority, dragAuthority, Ifactorempirical)
     # TODO: Obtain variables from estimator
-    # mheVars = self.controller.getMHEVars()
+        mheVars = self.controller.getMHEVars()
+    except:
+        # mheVars = np.array([
+        #     liftAuthority,dragAuthority,Ifactorempirical
+        #     ])
+        mheVars = np.array([
+            250,1.5,251
+            ])
 
     # Temporary: Just read the exact variables from the simulation
-    mheVars = np.array([
+    mpcVars = np.array([
       simTime, x, y, z, vx, vy, vz, propMass
     ])
 
@@ -680,7 +702,7 @@ class MyApp(ShowBase):
 
     # Initialize MPC with current variables
     try:
-      self.controller.setMPCVars(mheVars)
+      self.controller.setMPCVars(mheVars,mpcVars)
     except ValueError:
       return
       
